@@ -9,7 +9,9 @@ import time
 import urllib.error
 import urllib.request
 
-USER_AGENT = "orbis/1.0 (+https://github.com/Th3usBit/orbis)"
+# Identify the client honestly without hard-coding one particular fork's URL:
+# anyone running this is a self-hosted copy, and upstream is credited generically.
+USER_AGENT = "orbis/1.0 (open-source economic calendar; +https://github.com/topics/orbis)"
 TIMEOUT = 30
 RETRIES = 3
 

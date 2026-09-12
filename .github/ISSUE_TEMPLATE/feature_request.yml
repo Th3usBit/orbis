@@ -1,0 +1,33 @@
+name: Feature request
+description: Suggest an addition or a change.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        orbis stays dependency-free: no `pip install`, no `package.json`, no API
+        keys, no backend. Proposals that need any of those are unlikely to land
+        as-is, but are still worth discussing.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: The problem
+      description: What is hard or impossible today?
+    validations:
+      required: true
+
+  - type: textarea
+    id: idea
+    attributes:
+      label: What you have in mind
+    validations:
+      required: true
+
+  - type: checkboxes
+    id: constraints
+    attributes:
+      label: Constraints
+      options:
+        - label: This needs no new dependency, API key or backend.
+        - label: I would be willing to work on it.

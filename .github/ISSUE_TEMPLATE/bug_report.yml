@@ -1,0 +1,39 @@
+name: Bug report
+description: Something does not work the way it should.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Before filing: try `./start.sh` (or `start.bat`) once with a network
+        connection. Most "blank globe" reports are a missing `data/calendar.json`.
+
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you ran, what you expected, what you got.
+    validations:
+      required: true
+
+  - type: input
+    id: step
+    attributes:
+      label: Where it broke
+      description: Geometry build, calendar fetch, local server, or the page itself?
+      placeholder: e.g. python scripts/fetch.py
+
+  - type: textarea
+    id: output
+    attributes:
+      label: Console output
+      description: Terminal output, or the browser console (F12). Paste as text.
+      render: shell
+
+  - type: input
+    id: env
+    attributes:
+      label: Environment
+      placeholder: e.g. Windows 11, Python 3.12, Chrome 131
+    validations:
+      required: true

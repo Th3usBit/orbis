@@ -1,7 +1,18 @@
+# --- Generated artefacts -------------------------------------------------
+# orbis ships no data. Everything below is rebuilt locally by `start.sh` /
+# `start.bat` (or by the Pages workflow) so that a fresh clone never inherits
+# somebody else's calendar snapshot.
+data/calendar.json
+assets/land-dots.json
+assets/borders.json
+
+# --- Python --------------------------------------------------------------
 __pycache__/
 *.py[cod]
 .venv/
 venv/
+
+# --- Editors and OS ------------------------------------------------------
 .DS_Store
 Thumbs.db
 .idea/

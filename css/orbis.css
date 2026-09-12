@@ -126,11 +126,13 @@ body::after {
 }
 .boot-error {
   margin: 0;
-  max-width: 34ch;
+  max-width: 46ch;
   text-align: center;
   color: var(--impact-3);
   font-size: 13px;
   line-height: 1.6;
+  /* The message carries newlines and indented commands: keep both. */
+  white-space: pre-line;
 }
 
 /* --------------------------------------------------------------------------

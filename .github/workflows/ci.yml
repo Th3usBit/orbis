@@ -1,0 +1,44 @@
+# Verify that a fresh clone builds and runs, on every platform we claim to
+# support. This is the check that matters for an orbis fork: nothing is
+# cached, nothing is committed, everything is built from source.
+
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Fresh clone on ${{ matrix.os }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      # No requirements.txt on purpose: the collector is standard library only.
+      # If this step ever needs a pip install, that promise has been broken.
+      - name: Build the globe geometry
+        run: python scripts/build_geometry.py
+
+      - name: Collect the calendar
+        run: python scripts/fetch.py
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Smoke-test the state layer
+        run: node tests/store.test.mjs .

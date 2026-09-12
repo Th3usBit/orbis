@@ -49,7 +49,9 @@ cd orbis
 
 O único requisito é **Python 3.9+**, e apenas a biblioteca padrão é usada — não existe `pip install`, nem `package.json`, nem ferramenta de build.
 
-Já tem os dados e só quer a página?
+**O repositório não contém dados.** Um clone traz apenas o código-fonte: o calendário e a geometria do globo são gerados na sua máquina, na primeira execução, a partir de endpoints públicos. Isso é proposital — ninguém herda um retrato velho da sessão de outra pessoa, e o histórico do git não carrega um arquivo de 550 KB que muda toda hora. A primeira execução precisa de internet e leva cerca de um minuto; as seguintes são instantâneas.
+
+Depois de gerados, os dados são seus e funcionam offline:
 
 ```bat
 start.bat offline
@@ -60,7 +62,7 @@ start.bat offline
 Nenhum dos provedores gratuitos de calendário envia cabeçalhos CORS, então o navegador não consegue chamá-los direto. O orbis transforma essa limitação em vantagem:
 
 ```
-  ┌────────────────────┐     de hora em hora, no GitHub Actions
+  ┌────────────────────┐     no deploy, dentro do CI
   │  scripts/fetch.py  │  ── ou quando você roda o start ──────┐
   └────────────────────┘                                       │
       │                                                        ▼
@@ -76,7 +78,7 @@ Nenhum dos provedores gratuitos de calendário envia cabeçalhos CORS, então o 
                                                  └────────────────────────┘
 ```
 
-Como a saída é um único JSON estático, o site inteiro roda no GitHub Pages de graça, para sempre, sem servidor para manter no ar e sem chave para vazar.
+Como a saída é um único JSON estático, o site inteiro roda no GitHub Pages de graça, para sempre, sem servidor para manter no ar e sem chave para vazar. A demo publicada é reconstruída do zero a cada deploy e a cada seis horas — o artefato vai direto para o Pages e nunca é commitado, então o repositório permanece limpo.
 
 **Reconciliação.** As duas fontes de calendário são mescladas, não concatenadas. Eventos de provedores diferentes são tratados como a mesma divulgação quando compartilham o país, caem dentro de 45 minutos um do outro e têm títulos suficientemente parecidos. As coincidências recebem a marca `confirmed_by`, e a interface sinaliza com `✦` — uma divulgação em que duas fontes independentes concordam vale mais do que uma que aparece num feed só. Eventos do feed secundário que não casam com nada são mantidos como acréscimos legítimos.
 
@@ -120,10 +122,12 @@ orbis/
 │   └── sources/            um módulo por provedor
 ├── tests/store.test.mjs    testes da camada de estado (opcional, precisa de Node)
 ├── data/
-│   ├── calendar.json       gerado — o único arquivo que a página lê
+│   ├── calendar.json       gerado, fora do git — o único arquivo que a página lê
 │   └── countries.json      referência mantida à mão (capitais, moedas)
-└── assets/                 geometria do globo, gerada
+└── assets/                 gerado, fora do git — geometria do globo
 ```
+
+Tudo marcado como *gerado* não existe num clone novo e é reconstruído pelo `start`. Só o `countries.json` é versionado, por ser referência escrita à mão e não um retrato baixado.
 
 ## Configuração
 
@@ -137,9 +141,23 @@ python scripts/fetch.py --days-back 14 --days-ahead 45
 
 **Cores de impacto.** Definidas uma vez em `css/orbis.css` como `--impact-*` e espelhadas em `js/globe.js` como `IMPACT_COLORS` — mude nos dois.
 
+## Rodando a sua própria
+
+O orbis foi feito para ser forkado e auto-hospedado, sem nada para configurar e sem ninguém para pedir permissão:
+
+1. Faça o fork do repositório.
+2. **Settings → Pages → Source: GitHub Actions.**
+3. Faça qualquer push, ou rode o workflow **Deploy to Pages** na mão.
+
+O seu fork gera a própria geometria, coleta o próprio calendário e publica na sua URL `github.io`. Nenhum segredo para adicionar, nenhuma chave de API, nenhuma conta em provedor de dados e nenhum bot commitando dados nas suas branches. A reconstrução agendada roda a cada seis horas; se preferir que não rode, apague o bloco `schedule:` em `.github/workflows/pages.yml`.
+
+O `CI` roda o mesmo build no Linux, Windows e macOS a partir de um checkout limpo — é a verificação de que o seu fork continua cumprindo a promessa de clonar e rodar.
+
 ## Contribuindo
 
-Pull requests são bem-vindos. As contribuições mais fáceis e úteis:
+Veja o [CONTRIBUTING.md](CONTRIBUTING.md) para o setup, as regras da casa e como adicionar uma fonte. Em resumo: sem dados no repositório, sem dependências, sem chaves de API.
+
+As contribuições mais fáceis e úteis:
 
 - **Adicionar um país.** Uma linha em `data/countries.json` com as coordenadas da capital e a moeda.
 - **Melhorar uma tradução.** `PHRASES` em `js/i18n.js` mapeia nomes de indicadores, feriados e períodos do inglês para cada idioma. Agrupe uma linha nova onde fizer sentido — a ordenação é resolvida na compilação, e toda regra é ancorada em fronteira de palavra, então nada dispara dentro de uma palavra maior. Qualquer frase não mapeada cai de volta para o inglês, então cobertura parcial é segura.
@@ -172,4 +190,8 @@ O orbis é uma ferramenta informativa e educacional. Ele agrega dados de agenda 
 
 ## Licença
 
-[MIT](LICENSE) — o código. Os dados de calendário pertencem aos respectivos provedores, todos creditados no painel de Fontes e linkados em cada evento.
+[MIT](LICENSE) — **o código**: use, forke, venda, sem exigência além do aviso de licença.
+
+**Os dados são outra história.** O orbis não distribui nenhum: o calendário é buscado por você, em tempo de execução, direto dos provedores listados acima, e cada um mantém os direitos que tiver sobre o próprio feed. O `calendar.json` gerado não é coberto por esta licença, não é versionado neste repositório e não é redistribuído por ele. Cada evento aponta de volta para a sua fonte, e o painel de Fontes credita cada provedor pelo nome. A geometria da Natural Earth é domínio público.
+
+Se você redistribuir um fork que já venha com os dados coletados, essa é uma decisão sua com os provedores — não algo que esta licença conceda.
