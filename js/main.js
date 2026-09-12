@@ -12,7 +12,7 @@ import {
   renderFilters, renderTimeline, renderPanel, renderNextEvent, renderCountdown,
   renderSources, renderTooltip, bindPanelControls,
 } from './panels.js';
-import { applyStaticStrings, initLang, setLang, t, locale } from './i18n.js';
+import { applyStaticStrings, initLang, setLang, t } from './i18n.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -21,8 +21,7 @@ let nextEvent = null;
 
 async function boot() {
   initLang();
-  applyStaticStrings();
-  syncLangButtons();
+  applyLanguage();
 
   try {
     await loadData();
@@ -180,15 +179,18 @@ function bindNextEventCard() {
 
 /* -------------------------------------------------------------- language */
 
+/** Everything the language owns outside the render functions. */
+function applyLanguage() {
+  applyStaticStrings();
+  syncLangButtons();
+  document.title = t('doc_title');
+}
+
 function bindLanguage() {
   for (const button of document.querySelectorAll('.lang button')) {
     button.addEventListener('click', () => {
       setLang(button.dataset.lang);
-      applyStaticStrings();
-      syncLangButtons();
-      document.title = locale().startsWith('pt')
-        ? 'orbis — o calendário econômico mundial num globo'
-        : 'orbis — the world economic calendar on a globe';
+      applyLanguage();
       renderAll();
     });
   }
