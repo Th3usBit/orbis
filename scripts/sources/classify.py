@@ -93,10 +93,10 @@ def to_number(value) -> float | None:
     if value is None:
         return None
     if isinstance(value, (int, float)):
-        return float(value)
+        return _finite(float(value))
 
-    text = str(value).strip().replace(",", "").replace("%", "")
-    if not text or text in {"-", "--", "n/a"}:
+    text = str(value).strip().replace("%", "")
+    if not text or text.lower() in {"-", "--", "n/a", "nan", "inf", "-inf", "infinity"}:
         return None
 
     multiplier = 1.0
@@ -104,7 +104,44 @@ def to_number(value) -> float | None:
         multiplier = {"K": 1e3, "M": 1e6, "B": 1e9, "T": 1e12}[text[-1].upper()]
         text = text[:-1]
 
+    text = _decimal_point(text)
+
     try:
-        return float(text) * multiplier
-    except ValueError:
+        return _finite(float(text) * multiplier)
+    except (ValueError, OverflowError):
         return None
+
+
+def _decimal_point(text: str) -> str:
+    """Normalise thousands and decimal separators to a plain float literal.
+
+    The feeds are not consistent: '1,234.5' is Anglo, '1.234,5' is European and
+    means the same number, and a bare '5,5' is 5.5 rather than 55. Stripping
+    every comma -- which is what this used to do -- turns that last one into a
+    value ten times too large, silently.
+    """
+    if "," in text and "." in text:
+        # Whichever separator comes last is the decimal one.
+        if text.rfind(",") > text.rfind("."):
+            return text.replace(".", "").replace(",", ".")
+        return text.replace(",", "")
+
+    if "," in text:
+        head, _, tail = text.rpartition(",")
+        # Exactly three digits after a single comma is ambiguous ('1,234'), and
+        # thousands is the overwhelmingly more common intent in these feeds.
+        if len(tail) == 3 and head.count(",") == 0 and tail.isdigit():
+            return text.replace(",", "")
+        return text.replace(",", ".") if text.count(",") == 1 else text.replace(",", "")
+
+    return text
+
+
+def _finite(number: float) -> float | None:
+    """Drop NaN and infinities.
+
+    json.dump writes these as the bare literals NaN and Infinity, which no
+    JSON parser accepts: one such value in the feed would make calendar.json
+    unparseable and take the whole page down with it.
+    """
+    return number if number == number and number not in (float("inf"), float("-inf")) else None

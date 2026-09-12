@@ -46,6 +46,11 @@ jobs:
       - name: Check the translation tables
         run: node tests/i18n.test.mjs .
 
+      # Reconciliation fails quietly: a bad match publishes a plausible row
+      # carrying another release's numbers. These assert the output's shape.
+      - name: Check the reconciled dataset
+        run: node tests/merge.test.mjs .
+
       # Guards the offline promise: fails if anything reaches for a CDN again.
       - name: Check the page depends on nothing remote
         run: node tests/offline.test.mjs .

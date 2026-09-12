@@ -52,6 +52,7 @@ python scripts/build_geometry.py    # regenerate assets/
 python scripts/fetch.py             # regenerate data/calendar.json
 node tests/store.test.mjs .         # smoke-test the state layer (needs Node 18+)
 node tests/i18n.test.mjs .          # check the EN/PT/ES translation tables
+node tests/merge.test.mjs .         # check the reconciled dataset
 node tests/offline.test.mjs .       # check nothing loads from a CDN
 ```
 

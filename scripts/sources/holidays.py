@@ -34,8 +34,11 @@ def fetch(window, country_codes: set[str]) -> list[dict]:
         if code not in country_codes or not date:
             continue
 
-        # Holidays are all-day; anchor them at local midday so they land on the
-        # right calendar day for every viewer timezone.
+        # Holidays are all-day: what matters is the calendar date, not an
+        # instant. Midday UTC keeps the row sortable among timed events without
+        # landing on a neighbouring date in most zones; the UI reads the
+        # nominal date from the timestamp rather than converting it, which is
+        # what keeps Christmas on the 25th either side of the date line.
         timestamp = f"{date}T12:00:00Z"
         if not window.contains(timestamp):
             continue

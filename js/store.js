@@ -90,7 +90,11 @@ function decorate(event) {
     ...event,
     date,
     time: date.getTime(),
-    day: dayKey(date),
+    // A holiday has a calendar date, not an instant: Christmas is the 25th in
+    // Auckland and in Los Angeles alike. Converting its timestamp through a
+    // viewer timezone moves it a day either side of the date line, so the
+    // nominal date in the payload is used as-is.
+    day: event.all_day ? event.ts.slice(0, 10) : dayKey(date),
     region: null,       // filled lazily below, once countries are known
     forecast: event.forecast ?? null,
     previous: event.previous ?? null,

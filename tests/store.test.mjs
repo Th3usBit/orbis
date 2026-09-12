@@ -42,8 +42,15 @@ check('sources recorded', s.sources.length === 3, `got ${s.sources.length}`);
 console.log('\n=== dayList ===');
 const days = store.dayList();
 check('continuous day strip', days.length >= 20, `got ${days.length}`);
-check('no gaps between days', days.every((d, i) =>
-  i === 0 || (d.date - days[i - 1].date) === 86400000));
+// A calendar day is not always 86,400,000 ms: the week a daylight-saving
+// change falls in has one of 23 or 25 hours, and comparing raw milliseconds
+// fails there for a strip that is perfectly continuous. Compare the dates.
+check('no gaps between days', days.every((d, i) => {
+  if (i === 0) return true;
+  const next = new Date(days[i - 1].date);
+  next.setDate(next.getDate() + 1);
+  return store.dayKey(next) === d.key;
+}));
 check('counts sum to totals', days.every((d) =>
   d.counts[0] + d.counts[1] + d.counts[2] + d.counts[3] === d.total));
 check('total across days equals visible events',

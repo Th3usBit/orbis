@@ -31,7 +31,37 @@ DATA = os.path.join(ROOT, "data")
 # country, land within this many minutes of each other, and their titles are
 # similar enough.
 MATCH_MINUTES = 45
-MATCH_RATIO = 0.62
+
+# Indicator names are long and share most of their characters, so ordinary
+# string similarity runs hot: "Unemployment Rate" and "Employment Rate" score
+# 0.94, "Exports" and "Imports" 0.71. The threshold is therefore high, and it
+# is not trusted on its own -- the period and polarity checks below do the work
+# that a ratio cannot.
+MATCH_RATIO = 0.90
+
+# The window a release can be reported in by two feeds spans midnight UTC for
+# Asia-Pacific countries, whose releases cluster around 23:00-01:00 UTC. Buckets
+# are keyed by UTC date, so neighbours have to be consulted too.
+ADJACENT_DAYS = (-1, 0, 1)
+
+# "CPI MoM" and "CPI YoY" are different releases with near-identical names. The
+# period is the distinguishing part, so two rows whose periods disagree are
+# never the same event however similar the rest reads.
+PERIOD_MARKERS = {
+    "mom": "mom", "m/m": "mom", "monthly": "mom",
+    "qoq": "qoq", "q/q": "qoq", "quarterly": "qoq",
+    "yoy": "yoy", "y/y": "yoy", "annual": "yoy", "yearly": "yoy",
+    "wow": "wow", "w/w": "wow", "weekly": "wow",
+}
+
+# Likewise for opposites that differ by one short word.
+POLARITY_MARKERS = (
+    ("export", "import"),
+    ("unemploy", "employ"),
+    ("initial", "continuing"),
+    ("prelim", "final"),
+    ("core", None),
+)
 
 
 class Window:
@@ -68,6 +98,51 @@ def load_countries() -> tuple[dict, dict]:
     return reference["countries"], reference["currencies"]
 
 
+def period_of(title: str) -> str | None:
+    """The reporting period a title declares, if any: mom / qoq / yoy / wow."""
+    lowered = f" {title.lower()} "
+    for marker, period in PERIOD_MARKERS.items():
+        if f" {marker} " in lowered or f" {marker}." in lowered or lowered.endswith(f" {marker} "):
+            return period
+    # Suffixes often arrive glued to punctuation rather than spaced.
+    compact = "".join(ch for ch in title.lower() if ch.isalnum() or ch == "/")
+    for marker, period in PERIOD_MARKERS.items():
+        if compact.endswith(marker.replace("/", "")):
+            return period
+    return None
+
+
+def comparable(a: dict, b: dict) -> bool:
+    """Whether two rows can be the same release at all, before scoring them.
+
+    Cheap, decisive checks that a similarity ratio gets wrong: the two feeds
+    must agree on the reporting period, must not be opposite sides of the same
+    pair, and must not report values an order of magnitude apart -- an index
+    level against a percentage change is never one release.
+    """
+    period_a, period_b = period_of(a["title"]), period_of(b["title"])
+    if period_a and period_b and period_a != period_b:
+        return False
+
+    lower_a, lower_b = a["title"].lower(), b["title"].lower()
+    for left, right in POLARITY_MARKERS:
+        if right is None:
+            if (left in lower_a) != (left in lower_b):
+                return False
+        elif (left in lower_a and right in lower_b) or (right in lower_a and left in lower_b):
+            return False
+
+    # An index level (~330) and a percentage change (~0.4) are not the same
+    # number reported twice, however alike the titles read.
+    for field in ("previous", "actual"):
+        x, y = a.get(field), b.get(field)
+        if isinstance(x, (int, float)) and isinstance(y, (int, float)):
+            big, small = max(abs(x), abs(y)), min(abs(x), abs(y))
+            if small > 0 and big / small > 20:
+                return False
+    return True
+
+
 def merge(primary: list[dict], secondary: list[dict]) -> tuple[list[dict], int]:
     """Fold the secondary feed into the primary one.
 
@@ -81,24 +156,45 @@ def merge(primary: list[dict], secondary: list[dict]) -> tuple[list[dict], int]:
 
     merged = list(primary)
     confirmed = 0
+    # A primary row corroborates at most one secondary row. Without this, several
+    # near-identical candidates collapse onto the same match and every one after
+    # the first is dropped -- the events simply vanish from the output.
+    claimed: set[int] = set()
 
     for candidate in secondary:
         moment = parse(candidate["ts"])
-        neighbours = by_country_day.get((candidate["country"], candidate["ts"][:10]), [])
-        match = None
+        if moment is None:
+            merged.append(candidate)
+            continue
 
+        neighbours: list[dict] = []
+        for offset in ADJACENT_DAYS:
+            day = (moment + timedelta(days=offset)).strftime("%Y-%m-%d")
+            neighbours.extend(by_country_day.get((candidate["country"], day), []))
+
+        # Score every plausible neighbour and take the best, rather than the
+        # first to clear the bar: iteration order is feed order, which is
+        # arbitrary, and the first match is often not the right one.
+        best, best_ratio = None, 0.0
         for existing in neighbours:
+            if id(existing) in claimed:
+                continue
             other = parse(existing["ts"])
-            if not moment or not other:
+            if other is None:
                 continue
             if abs((moment - other).total_seconds()) > MATCH_MINUTES * 60:
+                continue
+            if not comparable(candidate, existing):
                 continue
             ratio = SequenceMatcher(
                 None, slug(candidate["title"]), slug(existing["title"])
             ).ratio()
-            if ratio >= MATCH_RATIO:
-                match = existing
-                break
+            if ratio >= MATCH_RATIO and ratio > best_ratio:
+                best, best_ratio = existing, ratio
+
+        match = best
+        if match is not None:
+            claimed.add(id(match))
 
         if match:
             sources = set(match.get("confirmed_by") or [])

@@ -11,6 +11,8 @@ maintained independently, which makes it useful for two things:
 
 from __future__ import annotations
 
+import hashlib
+
 from datetime import datetime, timezone
 
 from .classify import categorize, to_number
@@ -104,4 +106,14 @@ def _normalize(row: dict, currency_to_country: dict[str, str]) -> dict | None:
 
 
 def _short(title: str) -> str:
-    return "".join(ch for ch in title.lower() if ch.isalnum())[:24]
+    """A stable, collision-free id fragment for a title.
+
+    This id is the only thing deduplicating the overlapping lastweek/thisweek/
+    nextweek feeds, so two different releases must never produce the same one.
+    Truncating the slug did exactly that: 'Prelim UoM Inflation Expectations'
+    and '... Expectations Revised' both cut to the same 24 characters, and the
+    second was dropped as a duplicate of the first.
+    """
+    slug = "".join(ch for ch in title.lower() if ch.isalnum())
+    digest = hashlib.sha1(title.strip().lower().encode("utf-8")).hexdigest()[:8]
+    return f"{slug[:24]}{digest}"

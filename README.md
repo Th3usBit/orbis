@@ -176,6 +176,7 @@ fetched data:
 python scripts/fetch.py
 node tests/store.test.mjs .
 node tests/i18n.test.mjs .
+node tests/merge.test.mjs .
 node tests/offline.test.mjs .
 ```
 

@@ -43,19 +43,30 @@ export function latLonToVector3(lat, lon, radius = RADIUS) {
 
 /**
  * Subsolar point for a moment in time: the latitude/longitude where the sun is
- * directly overhead. Declination from the day of year, longitude from UTC.
- * Accurate to well under a degree, which is far finer than a globe this size
- * can show.
+ * directly overhead.
+ *
+ * Solar noon is not 12:00 UTC on the prime meridian. The earth's orbit is
+ * elliptical and its axis tilted, so apparent solar time runs up to 16 minutes
+ * either side of mean time across the year — four degrees of longitude, about
+ * 450 km at the equator. The equation of time below corrects for it; without
+ * it the terminator sits visibly off its true place in late October and again
+ * in February. Good to a fraction of a degree, which is finer than a globe
+ * this size can render.
  */
 export function sunDirection(date) {
   const start = Date.UTC(date.getUTCFullYear(), 0, 0);
   const dayOfYear = (date.getTime() - start) / 86400000;
+
   const declination = -23.44 * Math.cos(((360 / 365.24) * (dayOfYear + 10)) * DEG);
+
+  // Equation of time, in minutes (standard approximation).
+  const b = ((360 / 365.24) * (dayOfYear - 81)) * DEG;
+  const minutesOffset = 9.87 * Math.sin(2 * b) - 7.53 * Math.cos(b) - 1.5 * Math.sin(b);
 
   const utcHours = date.getUTCHours()
     + date.getUTCMinutes() / 60
     + date.getUTCSeconds() / 3600;
-  const longitude = (12 - utcHours) * 15;
+  const longitude = (12 - utcHours) * 15 - minutesOffset * 0.25;
 
   return latLonToVector3(declination, longitude, 1).normalize();
 }
@@ -455,7 +466,18 @@ export async function createGlobe(canvas, handlers = {}, options = {}) {
     // Including the heads gives the pointer a far more forgiving target.
     const hits = raycaster.intersectObjects([markers, heads], false);
     if (!hits.length) return null;
-    return markerData[hits[0].instanceId] ?? null;
+
+    // The raycaster ignores depth, so a pillar on the far side of the planet is
+    // as pickable as one in front: hovering empty ocean could open a tooltip for
+    // an invisible country, and clicking would fly the camera there. The globe
+    // is a unit sphere at the origin in world space, so a hit belongs to the
+    // near hemisphere when it sits on the camera's side of the plane through
+    // the centre.
+    const toCamera = camera.position.clone().normalize();
+    for (const hit of hits) {
+      if (hit.point.dot(toCamera) > 0) return markerData[hit.instanceId] ?? null;
+    }
+    return null;
   }
 
   canvas.addEventListener('pointermove', (event) => {
