@@ -59,18 +59,27 @@
         </svg>
         <span class="filters-badge" id="filters-badge" hidden></span>
       </button>
-      <div class="clock" title="Coordinated Universal Time">
+      <!-- Every time in the app is UTC, including the event list, so the
+           topbar says which clock it is rather than leaving it to be guessed. -->
+      <div class="clock" id="clock-box" data-i18n-title="clock_help"
+           title="Coordinated Universal Time — every time shown in orbis is UTC">
         <span class="clock-tag">UTC</span>
         <time id="clock" class="clock-value">--:--:--</time>
+        <span class="clock-offset" id="clock-offset"></span>
       </div>
       <div class="lang" role="group" data-i18n-aria="aria_lang" aria-label="Language">
-        <button type="button" data-lang="en" class="is-active" title="English">
+        <button type="button" data-lang="en" class="is-active" title="English (US)">
           <svg class="lang-flag" viewBox="0 0 60 40" aria-hidden="true" focusable="false">
-            <rect width="60" height="40" fill="#012169"/>
-            <path d="M0 0 60 40M60 0 0 40" stroke="#fff" stroke-width="9"/>
-            <path d="M0 0 60 40M60 0 0 40" stroke="#c8102e" stroke-width="4"/>
-            <path d="M30 0V40M0 20H60" stroke="#fff" stroke-width="14"/>
-            <path d="M30 0V40M0 20H60" stroke="#c8102e" stroke-width="8"/>
+            <rect width="60" height="40" fill="#b22234"/>
+            <path d="M0 5.4h60M0 16.2h60M0 27h60M0 37.7h60"
+                  stroke="#fff" stroke-width="3.1"/>
+            <rect width="26" height="21.6" fill="#3c3b6e"/>
+            <g fill="#fff">
+              <circle cx="4.3" cy="4.3" r="1.3"/><circle cx="13" cy="4.3" r="1.3"/><circle cx="21.7" cy="4.3" r="1.3"/>
+              <circle cx="8.7" cy="8.6" r="1.3"/><circle cx="17.3" cy="8.6" r="1.3"/>
+              <circle cx="4.3" cy="13" r="1.3"/><circle cx="13" cy="13" r="1.3"/><circle cx="21.7" cy="13" r="1.3"/>
+              <circle cx="8.7" cy="17.3" r="1.3"/><circle cx="17.3" cy="17.3" r="1.3"/>
+            </g>
           </svg>
           <span>EN</span>
         </button>

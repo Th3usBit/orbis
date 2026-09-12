@@ -125,8 +125,33 @@ subscribe((reason) => {
 
 /* --------------------------------------------------------------- tickers */
 
+/**
+ * Write the viewer's own offset from UTC beside the clock.
+ *
+ * Every time in orbis -- the event list, the timeline, the countdown -- is UTC.
+ * That is the only honest choice for a calendar spanning every market, but it
+ * silently misleads anyone who reads 21:00 as their evening. This says, once,
+ * how far their clock is from the one on screen.
+ */
+function renderClockOffset() {
+  const node = document.getElementById('clock-offset');
+  if (!node) return;
+
+  // getTimezoneOffset is minutes *behind* UTC, so the sign is inverted.
+  const minutes = -new Date().getTimezoneOffset();
+  if (minutes === 0) { node.textContent = t('clock_here'); return; }
+
+  const sign = minutes < 0 ? '\u2212' : '+';
+  const abs = Math.abs(minutes);
+  const hours = Math.floor(abs / 60);
+  const rest = abs % 60;
+  const offset = rest ? `${sign}${hours}:${String(rest).padStart(2, '0')}` : `${sign}${hours}h`;
+  node.textContent = t('clock_you', { offset });
+}
+
 function startTickers() {
   const clock = document.getElementById('clock');
+  renderClockOffset();
 
   setInterval(() => {
     const now = new Date();
@@ -186,6 +211,7 @@ function bindNextEventCard() {
 function applyLanguage() {
   applyStaticStrings();
   syncLangButtons();
+  renderClockOffset();
   document.title = t('doc_title');
 }
 

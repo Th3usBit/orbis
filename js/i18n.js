@@ -30,6 +30,9 @@ export const UI = {
     category: 'Category',
     sources: 'Sources',
     filters: 'Filters',
+    clock_help: 'Coordinated Universal Time \u2014 every time shown in orbis is UTC',
+    clock_you: 'you {offset}',
+    clock_here: 'your time',
     aria_filters: 'Show filters',
     filters_close: 'Close',
     credits_mid: 'is MIT-licensed. Globe by',
@@ -108,6 +111,9 @@ export const UI = {
     category: 'Categoria',
     sources: 'Fontes',
     filters: 'Filtros',
+    clock_help: 'Tempo Universal Coordenado \u2014 todos os hor\u00e1rios do orbis s\u00e3o em UTC',
+    clock_you: 'voc\u00ea {offset}',
+    clock_here: 'seu hor\u00e1rio',
     aria_filters: 'Mostrar filtros',
     filters_close: 'Fechar',
     credits_mid: 'é software livre (MIT). Globo com',
@@ -186,6 +192,9 @@ export const UI = {
     category: 'Categoría',
     sources: 'Fuentes',
     filters: 'Filtros',
+    clock_help: 'Tiempo Universal Coordinado \u2014 todas las horas de orbis son UTC',
+    clock_you: 't\u00fa {offset}',
+    clock_here: 'tu hora',
     aria_filters: 'Mostrar filtros',
     filters_close: 'Cerrar',
     credits_mid: 'es software libre (MIT). Globo con',
@@ -750,7 +759,8 @@ export function countryName(country) {
 
 /**
  * Paint every [data-i18n] node. Called on load and on every language switch.
- * [data-i18n-aria] does the same for the labels only screen readers hear.
+ * [data-i18n-aria] does the same for the labels only screen readers hear,
+ * and [data-i18n-title] for hover tooltips.
  */
 export function applyStaticStrings(root = document) {
   for (const node of root.querySelectorAll('[data-i18n]')) {
@@ -758,6 +768,11 @@ export function applyStaticStrings(root = document) {
   }
   for (const node of root.querySelectorAll('[data-i18n-aria]')) {
     node.setAttribute('aria-label', t(node.dataset.i18nAria));
+  }
+  // [data-i18n-title] covers hover tooltips, which are the only place some of
+  // this text appears -- an English one on a Portuguese page is a loose end.
+  for (const node of root.querySelectorAll('[data-i18n-title]')) {
+    node.setAttribute('title', t(node.dataset.i18nTitle));
   }
 }
 

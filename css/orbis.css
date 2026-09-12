@@ -224,13 +224,26 @@ body::after {
 
 .clock {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   gap: 8px;
-  padding: 7px 12px;
+  height: 32px;
+  padding: 0 12px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   background: var(--panel);
   backdrop-filter: blur(14px);
+  cursor: help;
+}
+
+/* Says which part of the world the clock belongs to, and by how far it differs
+   from the reader's own -- the times in the event list are UTC, and a reader in
+   Sao Paulo reading 21:00 needs to know that is 18:00 for them. */
+.clock-offset {
+  font-family: var(--mono);
+  font-size: 10px;
+  color: var(--ink-faint);
+  padding-left: 8px;
+  border-left: 1px solid var(--line);
 }
 .clock-tag {
   font-size: 9px;
@@ -246,6 +259,8 @@ body::after {
 
 .lang {
   display: flex;
+  align-items: stretch;
+  height: 32px;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
   overflow: hidden;
@@ -294,7 +309,7 @@ body::after {
     justify-content: center;
     position: relative;
     width: 34px;
-    height: 30px;
+    height: 32px;
     border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     background: var(--panel);
@@ -387,11 +402,13 @@ body::after {
 /* Fourteen category chips in a 150px box showed six and gave no sign the rest
    existed. More room, plus a fade at the bottom edge that only appears while
    something is still below the fold. */
-/* Tall enough for every category chip, so there is nothing to scroll past and
-   nothing to hint at. A fade here read as a shadow over the last row. */
+/* Capped so the cards below it -- Sources, and the credits with them -- stay
+   on screen. It scrolls on its own rather than pushing them off the rail; no
+   fade, which read as a shadow over the last row. */
 .card-scroll {
-  max-height: none;
-  overflow-y: visible;
+  max-height: 172px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* --- Next high-impact ----------------------------------------------------- */
