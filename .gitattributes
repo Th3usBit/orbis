@@ -1,0 +1,10 @@
+# Normalise everything to LF inside the repository, whatever the contributor's OS.
+* text=auto eol=lf
+
+# Windows batch files are the exception: cmd.exe wants CRLF.
+*.bat text eol=crlf
+
+# Generated artefacts: single-line JSON, useless in diffs and in language stats.
+assets/land-dots.json  -diff linguist-generated
+assets/borders.json    -diff linguist-generated
+data/calendar.json     -diff linguist-generated

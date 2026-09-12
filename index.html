@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en" data-lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>orbis — the world economic calendar on a globe</title>
+<meta name="description" content="Every scheduled economic release, central bank decision and market holiday on Earth, plotted on a live 3D globe. Open source, no API keys, no backend.">
+<meta name="theme-color" content="#05070c">
+
+<meta property="og:title" content="orbis — the world economic calendar on a globe">
+<meta property="og:description" content="Every scheduled economic release, central bank decision and market holiday on Earth, on a live 3D globe.">
+<meta property="og:type" content="website">
+
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%234da3ff' stroke-width='2'/><ellipse cx='16' cy='16' rx='5.5' ry='13' fill='none' stroke='%234da3ff' stroke-width='1.4' opacity='.7'/><path d='M3.6 12h24.8M3.6 20h24.8' stroke='%234da3ff' stroke-width='1.4' opacity='.7'/></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="css/orbis.css">
+
+<script type="importmap">
+{
+  "imports": {
+    "three": "https://cdn.jsdelivr.net/npm/three@0.171.0/build/three.module.js",
+    "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.171.0/examples/jsm/"
+  }
+}
+</script>
+</head>
+<body>
+
+<canvas id="stage" aria-label="Interactive 3D globe of world economic events"></canvas>
+
+<div id="boot" class="boot">
+  <div class="boot-mark"></div>
+  <p class="boot-text" data-i18n="boot">Assembling the globe…</p>
+  <p class="boot-error" id="boot-error" hidden></p>
+</div>
+
+<div id="shell" class="shell" hidden>
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-text">
+        <strong>orbis</strong>
+        <span class="brand-tag" data-i18n="tagline">the world economic calendar</span>
+      </span>
+    </div>
+
+    <div class="topbar-tools">
+      <div class="clock" title="Coordinated Universal Time">
+        <span class="clock-tag">UTC</span>
+        <time id="clock" class="clock-value">--:--:--</time>
+      </div>
+      <div class="lang" role="group" aria-label="Language">
+        <button type="button" data-lang="en" class="is-active">EN</button>
+        <button type="button" data-lang="pt">PT</button>
+      </div>
+    </div>
+  </header>
+
+  <aside class="rail rail-left">
+
+    <section class="card card-next" id="next-card">
+      <h2 class="card-title" data-i18n="next_high">Next high-impact release</h2>
+      <div class="next-body">
+        <div class="next-when">
+          <span class="next-countdown" id="next-countdown">--:--:--</span>
+          <span class="next-date" id="next-date"></span>
+        </div>
+        <button type="button" class="next-event" id="next-event">
+          <span class="next-flag" id="next-flag"></span>
+          <span class="next-labels">
+            <span class="next-title" id="next-title">—</span>
+            <span class="next-country" id="next-country"></span>
+          </span>
+        </button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title" data-i18n="impact">Impact</h2>
+      <div class="filter-rows" id="filter-impact"></div>
+    </section>
+
+    <section class="card">
+      <h2 class="card-title" data-i18n="region">Region</h2>
+      <div class="filter-rows" id="filter-region"></div>
+    </section>
+
+    <section class="card card-scroll">
+      <h2 class="card-title" data-i18n="category">Category</h2>
+      <div class="chips" id="filter-category"></div>
+    </section>
+
+    <section class="card card-meta">
+      <h2 class="card-title" data-i18n="sources">Sources</h2>
+      <ul class="source-list" id="source-list"></ul>
+      <p class="meta-line" id="generated-line"></p>
+    </section>
+
+  </aside>
+
+  <aside class="rail rail-right">
+    <header class="panel-head">
+      <div>
+        <h2 class="panel-title" id="panel-title">—</h2>
+        <p class="panel-sub" id="panel-sub"></p>
+      </div>
+      <button type="button" class="panel-reset" id="panel-reset" hidden data-i18n="clear">clear</button>
+    </header>
+    <div class="panel-body" id="event-list" tabindex="0"></div>
+  </aside>
+
+  <footer class="timeline">
+    <button type="button" class="tl-step" id="tl-prev" aria-label="Previous day">‹</button>
+    <div class="tl-track" id="tl-track"></div>
+    <button type="button" class="tl-step" id="tl-next" aria-label="Next day">›</button>
+    <button type="button" class="tl-today" id="tl-today" data-i18n="today">today</button>
+  </footer>
+
+  <div class="hint" id="hint">
+    <span data-i18n="hint">Drag to rotate · scroll to zoom · click a marker</span>
+  </div>
+
+</div>
+
+<div id="tooltip" class="tooltip" hidden></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
