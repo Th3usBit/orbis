@@ -368,7 +368,17 @@ body::after {
   gap: 12px;
   min-height: 0;
 }
-.rail-left  { grid-area: left; overflow-y: auto; padding-right: 2px; }
+/* Scrolls when the cards outgrow the viewport, which they do below about
+   1000px tall. The gutter is permanent so the cards never shift sideways when
+   the scrollbar appears, and the bottom padding keeps the last card clear of
+   the timeline rather than ending flush against it. */
+.rail-left {
+  grid-area: left;
+  overflow-y: auto;
+  scrollbar-gutter: stable;
+  padding-right: 4px;
+  padding-bottom: 2px;
+}
 .rail-right { grid-area: right; }
 
 .card {
@@ -402,14 +412,28 @@ body::after {
 /* Fourteen category chips in a 150px box showed six and gave no sign the rest
    existed. More room, plus a fade at the bottom edge that only appears while
    something is still below the fold. */
-/* Capped so the cards below it -- Sources, and the credits with them -- stay
-   on screen. It scrolls on its own rather than pushing them off the rail; no
-   fade, which read as a shadow over the last row. */
+/* The one card that gives way. Every other card in the rail is sized by its
+   content; this one takes whatever height is left so that Sources -- and the
+   credits under it -- stay on screen at 768px as well as 1080px. A fixed cap
+   was always wrong at one end or the other. */
+/* Takes the height left over when the rail has room to give, and keeps its own
+   scroll when it does not. Squeezing the cards to fit a short screen made all
+   five cramped instead of letting the one column scroll, which is what a side
+   panel is supposed to do. */
+/* Cut between chip rows, not through one. Measured on the live panel: rows end
+   at 65, 96, 127 and 158px from the top of the card, so 140px ends cleanly
+   after the third and still leaves Sources on screen at 1080px. An arbitrary
+   height slices a row in half and the card reads as broken rather than
+   scrollable. */
 .card-scroll {
-  max-height: 172px;
+  max-height: 127px;
+  padding-bottom: 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+/* The padding moves onto the chip container so it scrolls with the content
+   instead of reserving a strip at the bottom that a half-row peeks into. */
+.card-scroll .chips { padding-bottom: 13px; }
 
 /* --- Next high-impact ----------------------------------------------------- */
 
