@@ -51,11 +51,13 @@ The only requirement is **Python 3.9+**, and only the standard library is used â
 
 **The repository ships no data.** A clone contains source code only: the calendar and the globe geometry are generated on your machine, on first run, from public endpoints. That is deliberate â€” nobody inherits a stale snapshot of somebody else's session, and the git history stays free of a 550 KB file that changes every hour. The first run needs a network connection and takes about a minute; every run after that is instant.
 
-Once generated, the data is yours and works offline:
+Once generated, the data is yours. `offline` skips the collectors and serves what you already have:
 
 ```bat
 start.bat offline
 ```
+
+It skips the *fetching*, not every request: the page still pulls Three.js and its fonts from a CDN, so a truly disconnected machine gets the panels without the globe. Vendoring Three.js is on the roadmap; until then `offline` means "do not re-fetch the calendar", not "works on a plane".
 
 ## How it works
 

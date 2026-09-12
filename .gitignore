@@ -11,6 +11,9 @@ __pycache__/
 *.py[cod]
 .venv/
 venv/
+.mypy_cache/
+.pytest_cache/
+.ruff_cache/
 
 # --- Editors and OS ------------------------------------------------------
 .DS_Store
