@@ -146,10 +146,10 @@ const ATMO_FRAG = /* glsl */`
   varying vec3 vNormalW;
 
   void main() {
-    float rim = pow(0.74 - dot(vNormalV, vec3(0.0, 0.0, 1.0)), 3.0);
+    float rim = pow(0.66 - dot(vNormalV, vec3(0.0, 0.0, 1.0)), 3.4);
     // The limb glows harder where the sun actually is.
     float lit = 0.45 + 0.55 * smoothstep(-0.5, 0.5, dot(normalize(vNormalW), normalize(uSun)));
-    gl_FragColor = vec4(uColor, 1.0) * clamp(rim, 0.0, 1.4) * lit;
+    gl_FragColor = vec4(uColor, 1.0) * clamp(rim, 0.0, 1.4) * lit * 0.78;
     #include <colorspace_fragment>
   }
 `;
@@ -188,13 +188,20 @@ const PULSE_FRAG = /* glsl */`
 
 /* ------------------------------------------------------------------ setup */
 
-export async function createGlobe(canvas, handlers = {}) {
+export async function createGlobe(canvas, handlers = {}, options = {}) {
   const [landDots, borders] = await Promise.all([
     fetch('assets/land-dots.json').then((r) => r.json()),
     fetch('assets/borders.json').then((r) => r.json()),
   ]);
 
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' });
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: 'high-performance',
+    // Only in diagnostics mode: keeping the buffer lets us read the rendered
+    // pixels back, at a small cost to performance.
+    preserveDrawingBuffer: Boolean(options.preserveDrawingBuffer),
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x05070c, 1);
 
@@ -264,7 +271,7 @@ export async function createGlobe(canvas, handlers = {}) {
   };
 
   world.add(new THREE.Mesh(
-    new THREE.SphereGeometry(RADIUS * 1.19, 64, 48),
+    new THREE.SphereGeometry(RADIUS * 1.145, 64, 48),
     new THREE.ShaderMaterial({
       uniforms: atmoUniforms,
       vertexShader: ATMO_VERT,
@@ -278,7 +285,7 @@ export async function createGlobe(canvas, handlers = {}) {
 
   /* --- markers ----------------------------------------------------------- */
 
-  const markerGeometry = new THREE.CylinderGeometry(0.0052, 0.0092, 1, 7, 1, true);
+  const markerGeometry = new THREE.CylinderGeometry(0.0095, 0.0145, 1, 8, 1, true);
   markerGeometry.translate(0, 0.5, 0);  // pivot at the base, so scale.y grows outward
 
   const markers = new THREE.InstancedMesh(
@@ -290,7 +297,7 @@ export async function createGlobe(canvas, handlers = {}) {
   markers.frustumCulled = false;
   world.add(markers);
 
-  const headGeometry = new THREE.SphereGeometry(0.014, 10, 8);
+  const headGeometry = new THREE.SphereGeometry(0.013, 10, 8);
   const heads = new THREE.InstancedMesh(
     headGeometry,
     new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.95, blending: THREE.AdditiveBlending, depthWrite: false }),
@@ -354,7 +361,7 @@ export async function createGlobe(canvas, handlers = {}) {
       scratch.matrix.compose(
         normal.clone().multiplyScalar(RADIUS * 0.998 + height),
         scratch.quat,
-        new THREE.Vector3(1, 1, 1).multiplyScalar(marker.maxImpact >= 3 ? 1.25 : 0.85),
+        new THREE.Vector3(1, 1, 1).multiplyScalar(marker.maxImpact >= 3 ? 1.15 : 0.8),
       );
       heads.setMatrixAt(index, scratch.matrix);
 
@@ -372,9 +379,11 @@ export async function createGlobe(canvas, handlers = {}) {
   }
 
   function markerHeight(marker) {
-    if (marker.maxImpact === 0) return 0.028;
-    const base = 0.035 + marker.maxImpact * 0.048;
-    const density = 1 + Math.min(Math.log2(marker.count + 1) * 0.085, 0.55);
+    if (marker.maxImpact === 0) return 0.020;
+    // Kept deliberately short: a pillar should read as a marker planted on the
+    // surface, not as an antenna. Impact dominates, volume only nudges.
+    const base = 0.018 + marker.maxImpact * 0.026;
+    const density = 1 + Math.min(Math.log2(marker.count + 1) * 0.05, 0.30);
     return base * density;
   }
 
@@ -437,7 +446,9 @@ export async function createGlobe(canvas, handlers = {}) {
   function pick() {
     if (!markers.count) return null;
     raycaster.setFromCamera(pointer, camera);
-    const hits = raycaster.intersectObject(markers, false);
+    // Both meshes share instance ordering, so either one resolves the marker.
+    // Including the heads gives the pointer a far more forgiving target.
+    const hits = raycaster.intersectObjects([markers, heads], false);
     if (!hits.length) return null;
     return markerData[hits[0].instanceId] ?? null;
   }
@@ -476,7 +487,7 @@ export async function createGlobe(canvas, handlers = {}) {
     updatePointer(event);
     const marker = pick();
     if (marker) {
-      focus(marker.lat, marker.lon);
+      // The store drives the camera, so selection stays the single trigger.
       handlers.onSelect?.(marker);
     } else {
       handlers.onSelect?.(null);
@@ -544,7 +555,9 @@ export async function createGlobe(canvas, handlers = {}) {
 
     pulseUniforms.uTime.value = clock.elapsedTime;
 
-    controls.update();
+    // OrbitControls derives the camera from its own spherical state on every
+    // update, so it has to stand down while a flight is positioning it.
+    if (!flight) controls.update();
     renderer.render(scene, camera);
   }
 
@@ -557,6 +570,30 @@ export async function createGlobe(canvas, handlers = {}) {
     setHighlight,
     focus,
     resize,
+
+    /** Everything scripts/diagnostics needs to judge the render without eyes. */
+    inspect() {
+      const context = renderer.getContext();
+      const debugInfo = context.getExtension('WEBGL_debug_renderer_info');
+      const distance = camera.position.length();
+      const halfHeight = Math.tan((camera.fov / 2) * DEG) * distance;
+
+      return {
+        gpu: debugInfo ? context.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown',
+        canvas: { width: canvas.clientWidth, height: canvas.clientHeight },
+        pixelRatio: renderer.getPixelRatio(),
+        cameraDistance: distance,
+        // Apparent on-screen size of the globe and of one marker pillar.
+        globeDiameterPx: (2 * RADIUS / (2 * halfHeight)) * canvas.clientHeight,
+        markerWidthPx: (2 * 0.0145 / (2 * halfHeight)) * canvas.clientHeight,
+        landDots: landDots.lon.length,
+        markers: markers.count,
+        pulses: pulses.geometry.drawRange.count,
+        dotSizePx: dotUniforms.uSize.value,
+        drawCalls: renderer.info.render.calls,
+        triangles: renderer.info.render.triangles,
+      };
+    },
     dispose() {
       running = false;
       controls.dispose();
