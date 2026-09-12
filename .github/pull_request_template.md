@@ -8,4 +8,5 @@
 - [ ] No new dependency, API key or backend
 - [ ] `python scripts/fetch.py` still succeeds
 - [ ] `node tests/store.test.mjs .` passes
+- [ ] `node tests/i18n.test.mjs .` passes
 - [ ] Tried it in the browser on a fresh clone

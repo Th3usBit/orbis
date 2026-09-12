@@ -162,7 +162,7 @@ The easiest useful contributions:
 - **Add a country.** One line in `data/countries.json` with its capital's coordinates and currency.
 - **Improve a translation.** `PHRASES` in `js/i18n.js` maps English indicator, holiday and period names to each language. Group a new row wherever it belongs — ordering is handled at compile time, and every rule is anchored to word edges, so nothing fires inside a longer word. Any unmapped phrase falls back to English, so partial coverage is safe.
 
-  The calendar is rebuilt hourly, so `tests/i18n.test.mjs` checks the tables against whatever the feeds published rather than against a fixture. It fails on a phrase that never fires, a language missing a key the others have, and on any title that comes out spliced.
+  The calendar is rebuilt on every run, so `tests/i18n.test.mjs` checks the tables against whatever the feeds published rather than against a fixture. It fails on a phrase that never fires, a language missing a key the others have, and on any title that comes out spliced.
 - **Add a language.** Three edits, no build step: a block in `UI` and a table in `PHRASES` (both in `js/i18n.js`), a `name_xx` column in `data/countries.json`, and a button with its flag in the `.lang` group in `index.html`.
 - **Add a source.** Drop a module in `scripts/sources/` exposing `ID`, `NAME`, `HOMEPAGE` and a `fetch()` that returns the normalized event shape, then register it in `scripts/fetch.py`. Sources that are free and key-free only, please — that constraint is the point of the project.
 Before opening a PR, run the state-layer checks against your own freshly

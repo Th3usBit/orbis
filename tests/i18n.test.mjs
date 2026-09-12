@@ -3,7 +3,7 @@
  *
  *     node tests/i18n.test.mjs .
  *
- * The calendar is rebuilt hourly, so most of what matters here cannot be
+ * The calendar is rebuilt on every run, so most of what matters here cannot be
  * pinned to a fixture: the feeds invent indicator names, holidays rotate
  * through the year, and countries come and go. These checks are written to
  * hold against whatever data/calendar.json happens to contain — the point is

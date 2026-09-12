@@ -42,3 +42,6 @@ jobs:
 
       - name: Smoke-test the state layer
         run: node tests/store.test.mjs .
+
+      - name: Check the translation tables
+        run: node tests/i18n.test.mjs .

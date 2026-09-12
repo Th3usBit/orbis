@@ -168,7 +168,7 @@ export const UI = {
     doc_title: 'orbis — el calendario económico mundial en un globo',
     tagline: 'el calendario económico mundial',
     boot: 'Montando el globo…',
-    boot_failed: 'No se pudieron cargar los datos. Ejecuta primero el recolector:\npython scripts/fetch.py',
+    boot_failed: 'Aún no hay datos. orbis se distribuye vacío a propósito — genéralos una vez:\n\n  start.bat     (Windows)\n  ./start.sh    (Linux / macOS)',
     next_high: 'Próxima publicación de alto impacto',
     impact: 'Impacto',
     region: 'Región',

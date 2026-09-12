@@ -43,10 +43,25 @@ Working offline afterwards:
 python scripts/build_geometry.py    # regenerate assets/
 python scripts/fetch.py             # regenerate data/calendar.json
 node tests/store.test.mjs .         # smoke-test the state layer (needs Node 18+)
+node tests/i18n.test.mjs .          # check the EN/PT/ES translation tables
 ```
 
 CI runs exactly this on Linux, Windows and macOS against a fresh clone. If it
 passes locally on a clean checkout, it will pass there.
+
+## Adding or improving a language
+
+The UI speaks English, Portuguêse and Spanish. Everything lives in `js/i18n.js`:
+a `UI` block of interface strings and a `PHRASES` table translating indicator
+names, plus a `name_xx` column per country in `data/countries.json`.
+
+A fourth language is a data edit, not a code change: add a `UI` block, a
+`PHRASES` table, the country column and a button. `tests/i18n.test.mjs` enforces
+that every language carries the same keys, so a missing string fails the build
+rather than silently falling back.
+
+Phrase rules are anchored to word edges, so a short rule cannot fire inside a
+longer word. Keep it that way — the test probes each rule for exactly this.
 
 ## Adding a data source
 
