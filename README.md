@@ -196,7 +196,7 @@ orbis is an informational and educational tool. It aggregates publicly published
 
 [MIT](LICENSE) — **the code**: use it, fork it, sell it, no attribution beyond the licence notice required.
 
-Third-party code under [`vendor/`](vendor/) keeps its own licence: three.js is MIT, Inter and JetBrains Mono are SIL OFL 1.1, each licence text sitting beside the files it covers.
+Third-party code under [`vendor/`](vendor/) keeps its own licence: three.js is MIT, Inter and JetBrains Mono are SIL OFL 1.1, each licence text sitting beside the files it covers, and all three credited in the Sources panel of the running app. [NOTICE.md](NOTICE.md) is the full accounting — what is bundled, what is fetched, and what you must keep if you redistribute.
 
 **The data is a separate matter.** orbis distributes none of it: the calendar is fetched by you, at runtime, from the providers listed above, and each provider retains whatever rights it has in its own feed. The generated `calendar.json` is not covered by this licence, is not committed to this repository, and is not redistributed by it. Every event links back to its source, and the Sources panel credits each provider by name. Natural Earth geometry is public domain.
 

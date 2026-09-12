@@ -26,7 +26,9 @@ function check(name, ok, detail = '') {
   if (!ok) failures += 1;
 }
 
-const read = (rel) => readFile(path.join(ROOT, rel), 'utf8');
+/* A missing file is a finding, not a crash: returning empty lets every later
+   check run and report, instead of the first gap hiding the rest. */
+const read = (rel) => readFile(path.join(ROOT, rel), 'utf8').catch(() => '');
 const exists = (rel) => access(path.join(ROOT, rel)).then(() => true, () => false);
 
 /* The SVG namespace is an identifier, not a request: xmlns never resolves. */
@@ -41,8 +43,25 @@ function externalUrls(text) {
 console.log('\n=== markup and styles ===');
 
 const html = await read('index.html');
-const htmlUrls = externalUrls(html);
-check('index.html references no external URL', htmlUrls.length === 0, htmlUrls.join(', '));
+
+/* An <a href> is navigation: the browser fetches it only if someone clicks,
+   so attribution links cost nothing offline. What breaks a disconnected page
+   is a resource the browser loads on its own — a stylesheet, a script, a
+   font, an image. Only those are failures here. */
+const loaded = [
+  ...html.matchAll(/<link\b[^>]*\shref=["']([^"']+)["'][^>]*>/gi),
+  ...html.matchAll(/<(?:script|img|source|iframe|video|audio)\b[^>]*\ssrc=["']([^"']+)["'][^>]*>/gi),
+].map((m) => m[1]);
+
+const remoteLoaded = loaded.filter((url) => /^(https?:)?\/\//.test(url));
+check('index.html loads no remote resource', remoteLoaded.length === 0, remoteLoaded.join(', '));
+
+const navLinks = [...html.matchAll(/<a\b[^>]*\shref=["'](https?:\/\/[^"']+)["']/gi)].map((m) => m[1]);
+check('outbound links are attribution only, and safely targeted',
+  navLinks.every((url) => {
+    const tag = html.slice(Math.max(0, html.indexOf(url) - 200), html.indexOf(url) + url.length + 200);
+    return !/target="_blank"/.test(tag) || /rel="noopener noreferrer"/.test(tag);
+  }));
 
 const css = await read('css/orbis.css');
 const cssUrls = externalUrls(css);
@@ -138,6 +157,45 @@ const fontFiles = [...fontCss.matchAll(/url\(['"]?([^'")]+)['"]?\)/g)].map((m) =
 check('vendor/fonts.css declares at least one font', fontFiles.length > 0);
 for (const file of fontFiles) {
   check(`font present: ${file}`, await exists(path.posix.join('vendor', file)));
+}
+
+console.log('\n=== licensing ===');
+
+/* Bundling someone else's code carries an obligation: their notice travels
+   with it. These fail if a vendored file loses its licence, or if the running
+   interface stops crediting what it ships. */
+const notice = await read('NOTICE.md');
+for (const name of ['three.js', 'Inter', 'JetBrains Mono']) {
+  check(`NOTICE.md accounts for ${name}`, notice.includes(name));
+}
+check('NOTICE.md points at the licence texts',
+  notice.includes('vendor/three/LICENSE') && notice.includes('LICENSE-Inter.txt'));
+
+const threeLicence = await read('vendor/three/LICENSE');
+check('three.js licence is intact',
+  /MIT/i.test(threeLicence) && /three\.js authors/i.test(threeLicence));
+
+for (const [file, holder] of [
+  ['vendor/fonts/LICENSE-Inter.txt', 'Inter Project Authors'],
+  ['vendor/fonts/LICENSE-JetBrainsMono.txt', 'JetBrains Mono Project Authors'],
+]) {
+  const text = await read(file);
+  check(`${file} carries the OFL and its copyright`,
+    text.includes('SIL Open Font License') && text.includes(holder));
+}
+
+/* The published site is distribution too, so the credits belong in the markup,
+   not only in files nobody opens. */
+check('the interface credits three.js', html.includes('threejs.org'));
+check('the interface credits both fonts',
+  html.includes('rsms.me/inter') && html.includes('jetbrains.com/lp/mono'));
+
+const i18nSource = await read('js/i18n.js');
+const creditKeys = [...html.matchAll(/data-i18n="(credits_[a-z_]+)"/g)].map((m) => m[1]);
+check('the credit line is translatable', creditKeys.length > 0);
+for (const key of creditKeys) {
+  const defined = [...i18nSource.matchAll(new RegExp(`\\b${key}:`, 'g'))].length;
+  check(`${key} is defined in all three languages`, defined === 3, `found ${defined}`);
 }
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED\n' : `\n${failures} CHECK(S) FAILED\n`);

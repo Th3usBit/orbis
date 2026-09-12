@@ -1,0 +1,66 @@
+# Notices and attributions
+
+orbis itself is MIT-licensed — see [LICENSE](LICENSE). That covers the code in
+this repository written for this project. It does not cover the third-party code
+bundled under `vendor/`, nor the calendar data the collector fetches at runtime.
+This file says who owns what, and under which terms.
+
+## Bundled in this repository
+
+Committed under [`vendor/`](vendor/) so the page loads nothing from a CDN and
+works with no network. Each licence text sits beside the files it covers.
+
+| Component | Version | Licence | Notice |
+|---|---|---|---|
+| [three.js](https://threejs.org) | r171 | MIT | [`vendor/three/LICENSE`](vendor/three/LICENSE) |
+| [Inter](https://rsms.me/inter/) | v4 | SIL OFL 1.1 | [`vendor/fonts/LICENSE-Inter.txt`](vendor/fonts/LICENSE-Inter.txt) |
+| [JetBrains Mono](https://www.jetbrains.com/lp/mono/) | v2 | SIL OFL 1.1 | [`vendor/fonts/LICENSE-JetBrainsMono.txt`](vendor/fonts/LICENSE-JetBrainsMono.txt) |
+
+Copyright © 2010-2024 three.js authors.
+Copyright © 2016 The Inter Project Authors.
+Copyright © 2020 The JetBrains Mono Project Authors.
+
+**On the OFL and the fonts.** The SIL Open Font License permits bundling and
+redistribution, including in a commercial product, provided the font files keep
+their licence and are not sold on their own. It also reserves the font names:
+if you *modify* Inter or JetBrains Mono, the derivative may not be distributed
+under those names. orbis ships both unmodified, subset to `latin` and
+`latin-ext`, which the licence allows and which does not trigger the name
+reservation.
+
+**On three.js.** MIT. The notice above and the file in `vendor/three/` satisfy
+it. Both notices are also surfaced in the running interface, in the Sources
+panel, so a viewer of the published site sees them without reading the repo.
+
+## Fetched at runtime, not distributed here
+
+The collector downloads these when you run it. None of them is committed, and
+orbis redistributes none of them — each stays its owner's.
+
+| Source | Role | Terms |
+|---|---|---|
+| [TradingView](https://www.tradingview.com/economic-calendar/) | primary calendar | Public, key-free endpoint behind their own public widget |
+| [ForexFactory](https://www.forexfactory.com/calendar) via FairEconomy | cross-check | Public weekly JSON |
+| [Nager.Date](https://date.nager.at) | market holidays | Open-source public holiday API |
+| [Natural Earth](https://www.naturalearthdata.com/) via [world-atlas](https://github.com/topojson/world-atlas) | globe geometry | **Public domain** — no restrictions |
+
+Scheduling facts — dates, institutions, published figures — are not themselves
+copyrightable, and every event in the interface links back to the source that
+published it. The generated `data/calendar.json` is therefore not covered by the
+MIT licence in this repository: it is not this project's to license, which is
+part of why it is never committed.
+
+If you redistribute a fork that ships collected data rather than fetching it,
+that is a question between you and those providers.
+
+## Reusing orbis
+
+Under the MIT licence you may use, modify, sell and redistribute this code,
+including in closed-source work. Two obligations come with it:
+
+1. Keep the copyright notice and the licence text (`LICENSE`).
+2. Keep the third-party notices for whatever you redistribute from `vendor/` —
+   removing the credits from the interface does not remove the obligation, so
+   if you restyle that panel away, put the notices somewhere else.
+
+There is no warranty. See [`LICENSE`](LICENSE).
