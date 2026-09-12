@@ -286,37 +286,40 @@ body::after {
 .filters-toggle { display: none; }
 
 @media (max-width: 1040px) {
+  /* Three rules, sized and bordered exactly like the clock and the language
+     group beside it so the row reads as one set of controls. */
   .filters-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 7px;
-    padding: 7px 11px;
-    border: 1px solid var(--line-strong);
+    justify-content: center;
+    position: relative;
+    width: 34px;
+    height: 30px;
+    border: 1px solid var(--line);
     border-radius: var(--radius-sm);
     background: var(--panel);
     backdrop-filter: blur(14px);
-    color: var(--ink);
-    font-size: 11.5px;
-    font-weight: 600;
-    letter-spacing: 0.04em;
-    text-transform: uppercase;
-    transition: border-color 140ms ease, color 140ms ease;
+    color: var(--ink-dim);
+    transition: color 140ms ease, border-color 140ms ease;
   }
-  .filters-toggle svg { width: 15px; height: 15px; }
-  .filters-toggle:hover { border-color: var(--accent); }
-  .filters-toggle[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+  .filters-toggle svg { width: 16px; height: 16px; }
+  .filters-toggle:hover { color: var(--ink); border-color: var(--line-strong); }
+  .filters-toggle[aria-expanded="true"] { color: var(--accent); border-color: var(--accent); }
 
-  /* Says how many filters are narrowing the view, so a viewer who forgot can
-     see it without opening the panel. */
+  /* A dot, not a pill: the count belongs in the panel, the topbar only needs
+     to say that something is on. */
   .filters-badge {
-    min-width: 17px;
-    padding: 1px 5px;
-    border-radius: 9px;
+    position: absolute;
+    top: -3px;
+    right: -3px;
+    width: 7px;
+    height: 7px;
+    padding: 0;
+    border-radius: 50%;
+    border: 1.5px solid var(--bg);
     background: var(--accent);
-    color: var(--bg);
-    font-family: var(--mono);
-    font-size: 10px;
-    text-align: center;
+    font-size: 0;
+    color: transparent;
   }
 
   /* The rail becomes a sheet over the globe rather than stealing its space. */
@@ -384,17 +387,11 @@ body::after {
 /* Fourteen category chips in a 150px box showed six and gave no sign the rest
    existed. More room, plus a fade at the bottom edge that only appears while
    something is still below the fold. */
+/* Tall enough for every category chip, so there is nothing to scroll past and
+   nothing to hint at. A fade here read as a shadow over the last row. */
 .card-scroll {
-  max-height: 218px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  --fade: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
-  -webkit-mask-image: var(--fade);
-  mask-image: var(--fade);
-}
-.card-scroll.is-at-end {
-  -webkit-mask-image: none;
-  mask-image: none;
+  max-height: none;
+  overflow-y: visible;
 }
 
 /* --- Next high-impact ----------------------------------------------------- */
@@ -495,14 +492,20 @@ body::after {
   border: 1px solid var(--line);
   border-radius: 999px;
   color: var(--ink-dim);
-  transition: all 140ms ease;
+  background: transparent;
+  transition: background 140ms ease, border-color 140ms ease, color 140ms ease;
 }
 .chip:hover { border-color: var(--line-strong); color: var(--ink); }
+
+/* Selected has to look selected across a wall of fourteen. A 14% accent wash
+   did not survive the glass panel behind it; this reads at a glance. */
 .chip.is-on {
-  border-color: rgba(77, 163, 255, 0.5);
-  background: var(--accent-soft);
+  border-color: var(--accent);
+  background: rgba(77, 163, 255, 0.22);
   color: var(--ink-strong);
 }
+.chip.is-on .chip-count { color: var(--accent); }
+
 .chip-count { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-left: 4px; }
 
 /* --- Sources / meta ------------------------------------------------------- */
@@ -865,13 +868,16 @@ body::after {
    Scrollbars
    -------------------------------------------------------------------------- */
 
-.rail-left, .panel-body, .card-scroll { scrollbar-width: thin; scrollbar-color: rgba(125, 155, 195, 0.28) transparent; }
+/* The rails scroll, and at 24% the thumb was invisible enough that the panel
+   looked clipped rather than scrollable. Visible enough to find, quiet enough
+   to ignore. */
+.rail-left, .panel-body, .card-scroll { scrollbar-width: thin; scrollbar-color: rgba(125, 155, 195, 0.5) transparent; }
 .rail-left::-webkit-scrollbar,
 .panel-body::-webkit-scrollbar,
 .card-scroll::-webkit-scrollbar { width: 7px; }
 .rail-left::-webkit-scrollbar-thumb,
 .panel-body::-webkit-scrollbar-thumb,
-.card-scroll::-webkit-scrollbar-thumb { background: rgba(125, 155, 195, 0.24); border-radius: 4px; }
+.card-scroll::-webkit-scrollbar-thumb { background: rgba(125, 155, 195, 0.45); border-radius: 4px; }
 .rail-left::-webkit-scrollbar-track,
 .panel-body::-webkit-scrollbar-track,
 .card-scroll::-webkit-scrollbar-track { background: transparent; }
@@ -905,10 +911,6 @@ body::after {
   .clock { display: none; }
   .lang button { gap: 5px; padding: 6px 8px; }
 
-  /* At phone width the word does not fit beside three language buttons, and
-     the icon carries the meaning on its own. */
-  .filters-toggle span[data-i18n] { display: none; }
-  .filters-toggle { padding: 7px 9px; }
   .timeline { gap: 5px; padding: 6px; }
   .tl-today { padding: 0 9px; }
   .tl-day { min-width: 30px; }
