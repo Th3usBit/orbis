@@ -17,7 +17,7 @@ export const LANGS = ['en', 'pt', 'es'];
 const HTML_LANG = { en: 'en', pt: 'pt-BR', es: 'es' };
 const LOCALES = { en: 'en-GB', pt: 'pt-BR', es: 'es-ES' };
 
-const UI = {
+export const UI = {
   en: {
     doc_title: 'orbis — the world economic calendar on a globe',
     tagline: 'the world economic calendar',
@@ -239,11 +239,15 @@ const UI = {
 };
 
 /**
- * Indicator phrases, longest first so "Core Inflation Rate" wins over
- * "Inflation Rate". Applied as a sequential replace over the English title.
- * English needs no table — it is what the feeds already publish.
+ * Indicator, holiday and period phrases, applied as a sequential replace over
+ * the English title. English needs no table — it is what the feeds publish.
+ *
+ * Grouped by topic rather than by length: eventTitle() sorts by phrase length
+ * before applying, so "Core Inflation Rate" still beats "Inflation Rate" and a
+ * bare "Change" only ever catches what no compound above it claimed. A new row
+ * is therefore safe to drop anywhere in the list.
  */
-const PHRASES = {
+export const PHRASES = {
   pt: [
     ['Continuing Jobless Claims', 'Seguro-desemprego (continuados)'],
     ['Initial Jobless Claims', 'Pedidos de seguro-desemprego'],
@@ -327,6 +331,94 @@ const PHRASES = {
     ['Flash', 'prévia'],
     ['Prel', 'prévia'],
     ['Adv', 'prévia'],
+    // Holiday and observance names - nager publishes these in English only.
+    ['New Year\'s Day', 'Ano-Novo'],
+    ['New Year\'s Eve', 'Véspera de Ano-Novo'],
+    ['Christmas Day', 'Natal'],
+    ['Christmas Eve', 'Véspera de Natal'],
+    ['Good Friday', 'Sexta-feira Santa'],
+    ['Easter Monday', 'Segunda-feira de Páscoa'],
+    ['Boxing Day', 'Dia de Santo Estêvão'],
+    ['All Saints\' Day', 'Dia de Todos os Santos'],
+    ['Assumption of Mary', 'Assunção de Nossa Senhora'],
+    ['Immaculate Conception', 'Imaculada Conceição'],
+    ['Day of Our Lady of the Seven Sorrows', 'Dia de Nossa Senhora das Sete Dores'],
+    ['Feast of Our Lady of', 'Festa de Nossa Senhora de'],
+    ['Thanksgiving Day', 'Dia de Ação de Graças'],
+    ['Memorial Day', 'Dia da Memória'],
+    ['Veterans Day', 'Dia dos Veteranos'],
+    ['Columbus Day', 'Dia de Colombo'],
+    ['Presidents\' Day', 'Dia dos Presidentes'],
+    ['Independence Day', 'Dia da Independência'],
+    ['Unification Day', 'Dia da Unificação'],
+    ['Labour Day', 'Dia do Trabalho'],
+    ['Labor Day', 'Dia do Trabalho'],
+    ['National Day Golden Week', 'Semana Dourada (feriado nacional)'],
+    ['National Day', 'Feriado nacional'],
+    ['National holiday', 'Feriado nacional'],
+    ['Mid-Autumn Festival', 'Festival do Meio-Outono'],
+    ['Respect for the Aged Day', 'Dia do Respeito aos Idosos'],
+    ['Army Day', 'Dia do Exército'],
+    ['Rosh Hashanah', 'Rosh Hashaná'],
+    ['Father\'s Day', 'Dia dos Pais'],
+    ['Mother\'s Day', 'Dia das Mães'],
+
+    // Indicators the feeds publish that the first pass missed.
+    ['EIA Distillate Fuel Production Change', 'Variação da produção de destilados (EIA)'],
+    ['EIA Refinery Crude Runs Change', 'Processamento de petróleo nas refinarias (EIA)'],
+    ['EIA Gasoline Production Change', 'Variação da produção de gasolina (EIA)'],
+    ['EIA Heating Oil Stocks Change', 'Variação dos estoques de óleo de aquecimento (EIA)'],
+    ['EIA Distillate Stocks Change', 'Variação dos estoques de destilados (EIA)'],
+    ['EIA Gasoline Stocks Change', 'Variação dos estoques de gasolina (EIA)'],
+    ['API Crude Oil Stock Change', 'Variação dos estoques de petróleo (API)'],
+    ['Baker Hughes Total Rigs Count', 'Total de sondas em operação (Baker Hughes)'],
+    ['Baker Hughes Oil Rig Count', 'Sondas de petróleo em operação (Baker Hughes)'],
+    ['Jobless Claims 4-week Average', 'Média de 4 semanas do seguro-desemprego'],
+    ['Participation Rate', 'Taxa de participação'],
+    ['Unemployed Persons', 'Número de desempregados'],
+    ['BCB Focus Market Readout', 'Boletim Focus (BCB)'],
+    ['BoJ JGB Purchase', 'Compra de JGBs (BoJ)'],
+    ['Deposit Facility Rate', 'Taxa de depósito'],
+    ['Overnight Lending Rate', 'Taxa de empréstimo overnight'],
+    ['Fed Balance Sheet', 'Balanço do Fed'],
+    ['Budget Balance', 'Resultado orçamentário'],
+    ['Treasury Cash Balance', 'Caixa do Tesouro'],
+    ['External Debt', 'Dívida externa'],
+    ['Foreign Direct Investment', 'Investimento estrangeiro direto'],
+    ['Foreign Bond Investment', 'Investimento estrangeiro em títulos'],
+    ['Stock Investment by Foreigners', 'Investimento estrangeiro em ações'],
+    ['MBA Purchase Index', 'Índice de compras (MBA)'],
+    ['Eco Watchers Survey Current', 'Pesquisa Eco Watchers (atual)'],
+    ['Eco Watchers Survey Outlook', 'Pesquisa Eco Watchers (perspectiva)'],
+    ['NFIB Business Optimism Index', 'Índice de otimismo das pequenas empresas (NFIB)'],
+    ['Leading Indicators', 'Indicadores antecedentes'],
+    ['Revised GDP', 'PIB revisado'],
+    ['Core CPI', 'Núcleo do IPC'],
+    ['Core PPI', 'Núcleo do IPP'],
+    ['CPI', 'IPC'],
+    ['PPI', 'IPP'],
+    ['HPI', 'Índice de preços de imóveis'],
+    ['BRICS Summit', 'Cúpula do BRICS'],
+    ['ECOFIN Meeting', 'Reunião do ECOFIN'],
+
+    // Period suffixes. ForexFactory lowercases what TradingView writes as MoM.
+    ['m/m', '(mensal)'],
+    ['q/q', '(trimestral)'],
+    ['y/y', '(anual)'],
+    ['w/w', '(semanal)'],
+
+    // Last resort: a bare Change, after every compound above has had its turn.
+    ['Consumer Confidence Change', 'Variação da confiança do consumidor'],
+    ['Consumer Credit Change', 'Variação do crédito ao consumidor'],
+    ['Unemployment Change', 'Variação do desemprego'],
+    ['Production Change', 'Variação da produção'],
+    ['Stocks Change', 'Variação dos estoques'],
+    ['Stock Change', 'Variação dos estoques'],
+    ['Change', 'Variação'],
+
+    // Hyphenated compounds: one word, not two.
+    ['T-Bill Auction', 'Leilão de T-Bills'],
+    ['Non-Monetary Policy Meeting', 'Reunião de política não monetária'],
   ],
 
   es: [
@@ -412,6 +504,94 @@ const PHRASES = {
     ['Flash', 'preliminar'],
     ['Prel', 'preliminar'],
     ['Adv', 'preliminar'],
+    // Holiday and observance names - nager publishes these in English only.
+    ['New Year\'s Day', 'Año Nuevo'],
+    ['New Year\'s Eve', 'Nochevieja'],
+    ['Christmas Day', 'Navidad'],
+    ['Christmas Eve', 'Nochebuena'],
+    ['Good Friday', 'Viernes Santo'],
+    ['Easter Monday', 'Lunes de Pascua'],
+    ['Boxing Day', 'Día de San Esteban'],
+    ['All Saints\' Day', 'Día de Todos los Santos'],
+    ['Assumption of Mary', 'Asunción de la Virgen'],
+    ['Immaculate Conception', 'Inmaculada Concepción'],
+    ['Day of Our Lady of the Seven Sorrows', 'Día de Nuestra Señora de los Siete Dolores'],
+    ['Feast of Our Lady of', 'Fiesta de Nuestra Señora de'],
+    ['Thanksgiving Day', 'Día de Acción de Gracias'],
+    ['Memorial Day', 'Día de los Caídos'],
+    ['Veterans Day', 'Día de los Veteranos'],
+    ['Columbus Day', 'Día de la Hispanidad'],
+    ['Presidents\' Day', 'Día de los Presidentes'],
+    ['Independence Day', 'Día de la Independencia'],
+    ['Unification Day', 'Día de la Unificación'],
+    ['Labour Day', 'Día del Trabajo'],
+    ['Labor Day', 'Día del Trabajo'],
+    ['National Day Golden Week', 'Semana Dorada (fiesta nacional)'],
+    ['National Day', 'Fiesta nacional'],
+    ['National holiday', 'Fiesta nacional'],
+    ['Mid-Autumn Festival', 'Fiesta del Medio Otoño'],
+    ['Respect for the Aged Day', 'Día del Respeto a los Ancianos'],
+    ['Army Day', 'Día del Ejército'],
+    ['Rosh Hashanah', 'Rosh Hashaná'],
+    ['Father\'s Day', 'Día del Padre'],
+    ['Mother\'s Day', 'Día de la Madre'],
+
+    // Indicators the feeds publish that the first pass missed.
+    ['EIA Distillate Fuel Production Change', 'Variación de la producción de destilados (EIA)'],
+    ['EIA Refinery Crude Runs Change', 'Procesamiento de crudo en refinerías (EIA)'],
+    ['EIA Gasoline Production Change', 'Variación de la producción de gasolina (EIA)'],
+    ['EIA Heating Oil Stocks Change', 'Variación de inventarios de gasóleo de calefacción (EIA)'],
+    ['EIA Distillate Stocks Change', 'Variación de inventarios de destilados (EIA)'],
+    ['EIA Gasoline Stocks Change', 'Variación de inventarios de gasolina (EIA)'],
+    ['API Crude Oil Stock Change', 'Variación de inventarios de crudo (API)'],
+    ['Baker Hughes Total Rigs Count', 'Total de perforadoras activas (Baker Hughes)'],
+    ['Baker Hughes Oil Rig Count', 'Perforadoras de petróleo activas (Baker Hughes)'],
+    ['Jobless Claims 4-week Average', 'Media de 4 semanas de peticiones de subsidio'],
+    ['Participation Rate', 'Tasa de actividad'],
+    ['Unemployed Persons', 'Número de desempleados'],
+    ['BCB Focus Market Readout', 'Boletín Focus (BCB)'],
+    ['BoJ JGB Purchase', 'Compra de JGB (BoJ)'],
+    ['Deposit Facility Rate', 'Tipo de la facilidad de depósito'],
+    ['Overnight Lending Rate', 'Tipo de préstamo a un día'],
+    ['Fed Balance Sheet', 'Balance de la Fed'],
+    ['Budget Balance', 'Saldo presupuestario'],
+    ['Treasury Cash Balance', 'Saldo de caja del Tesoro'],
+    ['External Debt', 'Deuda externa'],
+    ['Foreign Direct Investment', 'Inversión extranjera directa'],
+    ['Foreign Bond Investment', 'Inversión extranjera en bonos'],
+    ['Stock Investment by Foreigners', 'Inversión extranjera en acciones'],
+    ['MBA Purchase Index', 'Índice de compras (MBA)'],
+    ['Eco Watchers Survey Current', 'Encuesta Eco Watchers (actual)'],
+    ['Eco Watchers Survey Outlook', 'Encuesta Eco Watchers (perspectivas)'],
+    ['NFIB Business Optimism Index', 'Índice de optimismo empresarial (NFIB)'],
+    ['Leading Indicators', 'Indicadores adelantados'],
+    ['Revised GDP', 'PIB revisado'],
+    ['Core CPI', 'IPC subyacente'],
+    ['Core PPI', 'IPP subyacente'],
+    ['CPI', 'IPC'],
+    ['PPI', 'IPP'],
+    ['HPI', 'Índice de precios de vivienda'],
+    ['BRICS Summit', 'Cumbre de los BRICS'],
+    ['ECOFIN Meeting', 'Reunión del ECOFIN'],
+
+    // Period suffixes. ForexFactory lowercases what TradingView writes as MoM.
+    ['m/m', '(mensual)'],
+    ['q/q', '(trimestral)'],
+    ['y/y', '(interanual)'],
+    ['w/w', '(semanal)'],
+
+    // Last resort: a bare Change, after every compound above has had its turn.
+    ['Consumer Confidence Change', 'Variación de la confianza del consumidor'],
+    ['Consumer Credit Change', 'Variación del crédito al consumo'],
+    ['Unemployment Change', 'Variación del desempleo'],
+    ['Production Change', 'Variación de la producción'],
+    ['Stocks Change', 'Variación de inventarios'],
+    ['Stock Change', 'Variación de inventarios'],
+    ['Change', 'Variación'],
+
+    // Hyphenated compounds: one word, not two.
+    ['T-Bill Auction', 'Subasta de letras del Tesoro'],
+    ['Non-Monetary Policy Meeting', 'Reunión de política no monetaria'],
   ],
 };
 
@@ -480,16 +660,55 @@ export function regionLabel(region) {
   return t(`region_${region}`);
 }
 
+/**
+ * Compiled once per language: longest phrase first, each anchored to word
+ * edges.
+ *
+ * The length sort is why a specific rule always beats a generic one —
+ * "Core Inflation Rate" before "Inflation Rate", every compound before the
+ * bare "Change". The anchoring is why "Adv" no longer turns
+ * "Job Advertisements" into "Job préviaertisements", and why "CPI" leaves
+ * Sweden's "CPIF" alone: a plain substring replace had no way to tell a whole
+ * word from the start of a longer one. That matters more than the tables do —
+ * the feeds publish titles nobody here has seen yet, and a rule that can only
+ * fire on a word edge is a rule that cannot corrupt one.
+ *
+ * The leading edge is a capture group rather than a lookbehind, so the page
+ * still runs on Safari before 16.4.
+ */
+/**
+ * A hyphen binds like a letter. Treating it as a gap let "Bill Auction" fire
+ * inside "T-Bill Auction" and, worse, let "Monetary Policy Meeting" fire
+ * inside the ECB's "Non-Monetary Policy Meeting" — inverting the meaning
+ * rather than merely mangling the spelling.
+ */
+const WORD = 'A-Za-z0-9-';
+
+function escapeForRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function compile(table) {
+  return [...table]
+    .sort((a, b) => b[0].length - a[0].length)
+    .map(([english, translated]) => [
+      new RegExp(`(^|[^${WORD}])${escapeForRegExp(english)}(?![${WORD}])`, 'g'),
+      translated,
+    ]);
+}
+
+const COMPILED = Object.fromEntries(
+  Object.entries(PHRASES).map(([lang, table]) => [lang, compile(table)]),
+);
+
 /** Translate an English indicator title into the active language. */
 export function eventTitle(title) {
-  const phrases = PHRASES[current];
+  const phrases = COMPILED[current];
   if (!phrases || !title) return title;
 
   let output = title;
-  for (const [english, translated] of phrases) {
-    if (output.includes(english)) {
-      output = output.split(english).join(translated);
-    }
+  for (const [pattern, translated] of phrases) {
+    output = output.replace(pattern, (match, before) => before + translated);
   }
   return output;
 }
