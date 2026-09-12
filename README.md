@@ -142,7 +142,9 @@ python scripts/fetch.py --days-back 14 --days-ahead 45
 Pull requests welcome. The easiest useful contributions:
 
 - **Add a country.** One line in `data/countries.json` with its capital's coordinates and currency.
-- **Improve a translation.** `PHRASES` in `js/i18n.js` maps English indicator names to each language, longest phrase first. Any unmapped phrase falls back to English, so partial coverage is safe.
+- **Improve a translation.** `PHRASES` in `js/i18n.js` maps English indicator, holiday and period names to each language. Group a new row wherever it belongs — ordering is handled at compile time, and every rule is anchored to word edges, so nothing fires inside a longer word. Any unmapped phrase falls back to English, so partial coverage is safe.
+
+  The calendar is rebuilt hourly, so `tests/i18n.test.mjs` checks the tables against whatever the feeds published rather than against a fixture. It fails on a phrase that never fires, a language missing a key the others have, and on any title that comes out spliced.
 - **Add a language.** Three edits, no build step: a block in `UI` and a table in `PHRASES` (both in `js/i18n.js`), a `name_xx` column in `data/countries.json`, and a button with its flag in the `.lang` group in `index.html`.
 - **Add a source.** Drop a module in `scripts/sources/` exposing `ID`, `NAME`, `HOMEPAGE` and a `fetch()` that returns the normalized event shape, then register it in `scripts/fetch.py`. Sources that are free and key-free only, please — that constraint is the point of the project.
 Before opening a PR, run the state-layer checks against your own freshly
@@ -151,6 +153,7 @@ fetched data:
 ```bash
 python scripts/fetch.py
 node tests/store.test.mjs .
+node tests/i18n.test.mjs .
 ```
 
 - **Sharpen the classifier.** `CATEGORY_PATTERNS` in `scripts/sources/classify.py` decides which bucket an event falls into. Misfiled events are easy to spot and easy to fix.
