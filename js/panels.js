@@ -8,7 +8,7 @@
 
 import {
   IMPACTS, REGIONS, state, dayList, panelEvents, filterCounts,
-  selectDay, selectCountry, toggleEvent, toggleFilter, clearSelection, todayKey,
+  selectDay, selectCountry, toggleEvent, toggleFilter, clearSelection, todayKey, activeFilterCount, isNarrowed, resetFilters,
 } from './store.js';
 import {
   t, tCount, locale, categoryLabel, impactLabel, regionLabel, eventTitle, countryName,
@@ -137,11 +137,16 @@ function renderCategoryChips() {
     .sort((a, b) => b[1] - a[1])
     .map(([key]) => key);
 
+  // An empty selection means "every category", so every chip is on. Drawing
+  // them all as off in that state said the opposite of what the globe showed.
+  const everything = selected.size === 0;
+
   for (const category of categories) {
+    const on = everything || selected.has(category);
     const chip = document.createElement('button');
     chip.type = 'button';
-    chip.className = `chip${selected.has(category) ? ' is-on' : ''}`;
-    chip.setAttribute('aria-pressed', String(selected.has(category)));
+    chip.className = `chip${on ? ' is-on' : ''}${everything ? ' is-all' : ''}`;
+    chip.setAttribute('aria-pressed', String(on));
 
     const label = document.createElement('span');
     label.textContent = categoryLabel(category);
@@ -151,7 +156,7 @@ function renderCategoryChips() {
     count.textContent = counts.get(category);
 
     chip.append(label, count);
-    chip.addEventListener('click', () => toggleFilter('category', category));
+    chip.addEventListener('click', () => toggleFilter('category', category, categories));
     host.append(chip);
   }
 }
@@ -238,13 +243,16 @@ export function renderPanel() {
     const country = state.countries[state.selectedCountry];
     $('panel-title').textContent = `${flagOf(state.selectedCountry)}  ${countryName(country)}`;
     $('panel-sub').textContent = tCount(events.length);
-    reset.hidden = false;
   } else {
     const date = events[0]?.date ?? new Date(`${state.selectedDay}T12:00:00`);
     $('panel-title').textContent = longDate(date);
     $('panel-sub').textContent = tCount(events.length);
-    reset.hidden = true;
   }
+
+  // Reset is offered whenever anything is narrowing the view -- a filter, a
+  // category, a country -- not only when a country is selected. Filtering down
+  // to nothing and finding no way back is the worst version of this screen.
+  reset.hidden = !isNarrowed();
 
   host.replaceChildren();
 
@@ -584,8 +592,19 @@ export function renderTooltip(marker, x, y) {
 
 /* ---------------------------------------------------------------- wiring */
 
+/** Mirror the active-filter count onto the topbar button. */
+export function renderFilterBadge() {
+  const badge = document.getElementById('filters-badge');
+  if (!badge) return;
+  const n = activeFilterCount();
+  badge.hidden = n === 0;
+  badge.textContent = String(n);
+}
+
 export function bindPanelControls() {
-  $('panel-reset').addEventListener('click', clearSelection);
+  // Reset clears the filters as well as the selection: a button labelled
+  // "clear" that leaves three filters on is a lie.
+  $('panel-reset').addEventListener('click', resetFilters);
 
   $('tl-prev').addEventListener('click', () => stepDay(-1));
   $('tl-next').addEventListener('click', () => stepDay(1));

@@ -10,7 +10,7 @@ import {
 import { createGlobe } from './globe.js';
 import {
   renderFilters, renderTimeline, renderPanel, renderNextEvent, renderCountdown,
-  renderSources, renderTooltip, bindPanelControls,
+  renderSources, renderTooltip, bindPanelControls, renderFilterBadge,
 } from './panels.js';
 import { applyStaticStrings, initLang, setLang, t } from './i18n.js';
 
@@ -46,6 +46,8 @@ async function boot() {
 
   bindPanelControls();
   bindLanguage();
+  bindFilterPanel();
+  bindScrollHints();
   bindNextEventCard();
 
   renderAll();
@@ -81,6 +83,7 @@ function renderAll() {
   renderTimeline();
   renderPanel();
   renderSources();
+  renderFilterBadge();
   refreshNextEvent();
   syncGlobe();
 }
@@ -184,6 +187,71 @@ function applyLanguage() {
   applyStaticStrings();
   syncLangButtons();
   document.title = t('doc_title');
+}
+
+/**
+ * The filters panel on narrow screens.
+ *
+ * Below 1040px the left rail slides over the globe instead of sharing space
+ * with it. That makes it a dialog in all but name, so it behaves like one:
+ * Escape closes it, a click outside closes it, and focus is sent into it on
+ * open and back to the button on close.
+ */
+function bindFilterPanel() {
+  const toggle = document.getElementById('filters-toggle');
+  const rail = document.getElementById('rail-left');
+  if (!toggle || !rail) return;
+
+  const isOpen = () => rail.classList.contains('is-open');
+
+  const setOpen = (open) => {
+    rail.classList.toggle('is-open', open);
+    toggle.setAttribute('aria-expanded', String(open));
+    if (open) rail.querySelector('button')?.focus();
+    else if (document.activeElement && rail.contains(document.activeElement)) toggle.focus();
+  };
+
+  toggle.addEventListener('click', () => setOpen(!isOpen()));
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && isOpen()) {
+      event.stopPropagation();
+      setOpen(false);
+    }
+  });
+
+  document.addEventListener('pointerdown', (event) => {
+    if (!isOpen()) return;
+    if (rail.contains(event.target) || toggle.contains(event.target)) return;
+    setOpen(false);
+  });
+
+  // Returning to a wide layout puts the rail back on the page for good; the
+  // open class would otherwise keep a stale transform hanging around.
+  matchMedia('(min-width: 1041px)').addEventListener('change', (e) => {
+    if (e.matches) setOpen(false);
+  });
+}
+
+/**
+ * Drop the bottom fade on a scroll box once there is nothing left below it,
+ * so the hint means "there is more" rather than decorating every state.
+ */
+function bindScrollHints() {
+  for (const box of document.querySelectorAll('.card-scroll')) {
+    const sync = () => {
+      const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
+      const fits = box.scrollHeight <= box.clientHeight + 2;
+      box.classList.toggle('is-at-end', atEnd || fits);
+    };
+    box.addEventListener('scroll', sync, { passive: true });
+    // The chips are rendered after this runs and again on every filter change,
+    // so observe the content rather than measuring an empty box once.
+    new ResizeObserver(sync).observe(box);
+    if (box.firstElementChild) new ResizeObserver(sync).observe(box.firstElementChild);
+    new MutationObserver(sync).observe(box, { childList: true, subtree: true });
+    sync();
+  }
 }
 
 function bindLanguage() {

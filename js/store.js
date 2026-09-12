@@ -282,18 +282,64 @@ export function toggleEvent(id) {
   emit('event');
 }
 
-export function toggleFilter(dimension, value) {
+/** How many filters are currently narrowing the view. */
+export function activeFilterCount() {
+  const { impact, region, category } = state.filters;
+  // An empty category set means every category, which narrows nothing. A
+  // non-empty one narrows by however many categories are switched off, and
+  // toggleFilter keeps a full set normalised back to empty.
+  const categoriesOff = category.size === 0 ? 0 : filterCounts('category').size - category.size;
+  return (IMPACTS.length - impact.size)
+    + (REGIONS.length - region.size)
+    + Math.max(0, categoriesOff);
+}
+
+/** Whether anything at all is narrowing the view, selection included. */
+export function isNarrowed() {
+  return activeFilterCount() > 0 || Boolean(state.selectedCountry);
+}
+
+/** Put every filter back, and drop the country selection with them. */
+export function resetFilters() {
+  state.filters.impact = new Set(IMPACTS);
+  state.filters.region = new Set(REGIONS);
+  state.filters.category.clear();
+  state.selectedCountry = null;
+  state.openEventId = null;
+  emit('filter');
+}
+
+export function toggleFilter(dimension, value, allValues = null) {
   const set = state.filters[dimension];
+
+  // Categories start empty, meaning "all of them", and the chips are drawn as
+  // on to match. Clicking one from that state has to read as switching that
+  // single category off — so the set is first filled in, then the click
+  // applied, instead of the click silently meaning "show only this one".
+  if (dimension === 'category' && set.size === 0 && allValues) {
+    for (const key of allValues) set.add(key);
+  }
 
   if (set.has(value)) {
     set.delete(value);
     // Never let a dimension go completely empty — an empty globe helps nobody.
-    if (dimension !== 'category' && set.size === 0) {
+    if (set.size === 0) {
+      if (dimension === 'category') {
+        // Back to the "everything" state rather than a blank screen.
+        emit('filter');
+        return;
+      }
       set.add(value);
       return;
     }
   } else {
     set.add(value);
+  }
+
+  // Every category ticked is the same view as none ticked; keep the simpler
+  // representation so the reset button and the badge agree with the screen.
+  if (dimension === 'category' && allValues && set.size === allValues.length) {
+    set.clear();
   }
 
   emit('filter');

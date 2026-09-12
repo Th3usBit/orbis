@@ -16,7 +16,10 @@
   --ink:           #dbe3f0;
   --ink-strong:    #f4f7fc;
   --ink-dim:       #7f8ea6;
-  --ink-faint:     #56637a;
+  /* Raised from #56637a: at 9.5-10px that was 3.3:1 on --bg, under the 4.5:1
+     WCAG AA floor for small text. This clears it at 5:1 and keeps the step
+     down from --ink-dim readable as hierarchy. */
+  --ink-faint:     #727f97;
 
   --accent:        #4da3ff;
   --accent-soft:   rgba(77, 163, 255, 0.14);
@@ -166,7 +169,12 @@ body::after {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
+  /* Without this the row refuses to shrink below its content and the whole bar
+     runs off a phone screen, taking the controls at its right edge with it. */
+  min-width: 0;
+  flex-wrap: wrap;
 }
+.topbar > * { min-width: 0; }
 
 .brand { display: flex; align-items: center; gap: 11px; }
 
@@ -177,7 +185,7 @@ body::after {
   border: 1.5px solid var(--accent);
   position: relative;
   flex: none;
-  box-shadow: 0 0 18px rgba(77, 163, 255, 0.35);
+  box-shadow: none;
 }
 .brand-mark::before,
 .brand-mark::after {
@@ -205,7 +213,14 @@ body::after {
   color: var(--ink-faint);
 }
 
-.topbar-tools { display: flex; align-items: center; gap: 10px; }
+.topbar-tools {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  flex-wrap: wrap;
+  gap: 10px;
+  min-width: 0;
+}
 
 .clock {
   display: flex;
@@ -260,12 +275,70 @@ body::after {
   border-radius: 2px;
   outline: 1px solid rgb(255 255 255 / 0.2);
   outline-offset: -1px;
-  filter: grayscale(0.9);
-  opacity: 0.5;
-  transition: filter 200ms ease, opacity 200ms ease;
+  transition: outline-color 200ms ease;
 }
-.lang button:hover .lang-flag { filter: grayscale(0.35); opacity: 0.85; }
-.lang button.is-active .lang-flag { filter: none; opacity: 1; }
+.lang button.is-active .lang-flag { outline-color: rgb(255 255 255 / 0.45); }
+
+/* --- Filters toggle ------------------------------------------------------- */
+
+/* Only exists where the left rail is hidden; on wide screens the filters are
+   already on screen and a button to reveal them would be noise. */
+.filters-toggle { display: none; }
+
+@media (max-width: 1040px) {
+  .filters-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 11px;
+    border: 1px solid var(--line-strong);
+    border-radius: var(--radius-sm);
+    background: var(--panel);
+    backdrop-filter: blur(14px);
+    color: var(--ink);
+    font-size: 11.5px;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    transition: border-color 140ms ease, color 140ms ease;
+  }
+  .filters-toggle svg { width: 15px; height: 15px; }
+  .filters-toggle:hover { border-color: var(--accent); }
+  .filters-toggle[aria-expanded="true"] { border-color: var(--accent); color: var(--accent); }
+
+  /* Says how many filters are narrowing the view, so a viewer who forgot can
+     see it without opening the panel. */
+  .filters-badge {
+    min-width: 17px;
+    padding: 1px 5px;
+    border-radius: 9px;
+    background: var(--accent);
+    color: var(--bg);
+    font-family: var(--mono);
+    font-size: 10px;
+    text-align: center;
+  }
+
+  /* The rail becomes a sheet over the globe rather than stealing its space. */
+  .rail-left {
+    display: flex;
+    position: fixed;
+    z-index: 30;
+    top: 62px;
+    left: 14px;
+    width: min(320px, calc(100vw - 28px));
+    max-height: calc(100vh - 90px);
+    overflow-y: auto;
+    transform: translateX(calc(-100% - 20px));
+    visibility: hidden;
+    transition: transform 220ms cubic-bezier(0.22, 0.61, 0.36, 1), visibility 220ms;
+  }
+  .rail-left.is-open { transform: none; visibility: visible; }
+}
+
+@media (max-width: 1040px) and (prefers-reduced-motion: reduce) {
+  .rail-left { transition: none; }
+}
 
 /* --------------------------------------------------------------------------
    Cards / rails
@@ -308,7 +381,21 @@ body::after {
   color: var(--ink-faint);
 }
 
-.card-scroll { max-height: 150px; overflow-y: auto; }
+/* Fourteen category chips in a 150px box showed six and gave no sign the rest
+   existed. More room, plus a fade at the bottom edge that only appears while
+   something is still below the fold. */
+.card-scroll {
+  max-height: 218px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  --fade: linear-gradient(to bottom, #000 calc(100% - 26px), transparent 100%);
+  -webkit-mask-image: var(--fade);
+  mask-image: var(--fade);
+}
+.card-scroll.is-at-end {
+  -webkit-mask-image: none;
+  mask-image: none;
+}
 
 /* --- Next high-impact ----------------------------------------------------- */
 
@@ -383,7 +470,14 @@ body::after {
   transition: background 140ms ease, opacity 140ms ease;
 }
 .filter-row:hover { background: rgba(255, 255, 255, 0.035); }
-.filter-row.is-off { opacity: 0.33; }
+
+/* A disabled filter reads as disabled through its own controls -- a hollow dot
+   and struck-through count -- rather than by fading the row. Dimming hurts the
+   people who most need to read it, and at 0.33 the label fell below any usable
+   contrast. */
+.filter-row.is-off .filter-dot { background: transparent; box-shadow: inset 0 0 0 1.5px currentColor; }
+.filter-row.is-off .filter-label { color: var(--ink-faint); text-decoration: line-through; text-decoration-thickness: 1px; }
+.filter-row.is-off .filter-count { color: var(--ink-faint); }
 
 .filter-dot { width: 8px; height: 8px; border-radius: 2px; background: currentColor; }
 .filter-label { font-size: 12.5px; color: var(--ink); }
@@ -409,7 +503,7 @@ body::after {
   background: var(--accent-soft);
   color: var(--ink-strong);
 }
-.chip-count { font-family: var(--mono); font-size: 9.5px; opacity: 0.6; margin-left: 4px; }
+.chip-count { font-family: var(--mono); font-size: 10px; color: var(--ink-faint); margin-left: 4px; }
 
 /* --- Sources / meta ------------------------------------------------------- */
 
@@ -425,7 +519,7 @@ body::after {
 
 /* Attribution required by the MIT and OFL notices: present and readable, but
    it should never compete with the data above it. */
-.meta-credits { margin-top: 6px; line-height: 1.5; opacity: 0.75; }
+.meta-credits { margin-top: 6px; line-height: 1.5; }
 .meta-credits a { color: inherit; text-decoration: underline; text-underline-offset: 2px; }
 .meta-credits a:hover,
 .meta-credits a:focus-visible { color: var(--ink); }
@@ -506,7 +600,10 @@ body::after {
 }
 .event:hover { background: rgba(255, 255, 255, 0.035); }
 .event.is-open { background: rgba(77, 163, 255, 0.07); }
-.event.is-past { opacity: 0.55; }
+/* An event whose time has passed is still information: it keeps full contrast
+   and is marked by a quieter bar instead of being faded out. */
+.event.is-past .event-bar { opacity: 0.5; }
+.event.is-past .event-time { color: var(--ink-faint); }
 
 .event-bar { align-self: stretch; border-radius: 2px; background: currentColor; min-height: 22px; }
 
@@ -681,7 +778,9 @@ body::after {
 }
 .tl-day:hover { background: rgba(255, 255, 255, 0.045); }
 .tl-day.is-selected { border-color: var(--accent); background: var(--accent-soft); }
-.tl-day.is-past .tl-dow, .tl-day.is-past .tl-num { opacity: 0.45; }
+/* Past days stay fully legible. "Already happened" is carried by the today
+   marker and the selection border, not by making the label hard to read. */
+.tl-day.is-past .tl-num { color: var(--ink-dim); }
 
 .tl-dow {
   font-size: 8.5px;
@@ -724,7 +823,7 @@ body::after {
   border-radius: var(--radius-sm);
   background: rgba(6, 9, 16, 0.93);
   backdrop-filter: blur(10px);
-  box-shadow: 0 10px 34px rgba(0, 0, 0, 0.55);
+  box-shadow: none;
   transform: translate(-50%, calc(-100% - 14px));
   max-width: 260px;
 }
@@ -791,15 +890,25 @@ body::after {
     grid-template-rows: auto minmax(0, 1fr) auto;
     grid-template-areas: "top" "right" "time";
   }
-  .rail-left { display: none; }
-  .rail-right { max-height: 42vh; align-self: end; }
+  /* The rail is not removed any more -- it becomes the sheet declared above,
+     opened from the topbar button. Hiding it outright took every filter, the
+     language switcher's neighbours and the next-event card with it. */
+  .rail-right { max-height: 42vh; align-self: end; min-width: 0; }
   .hint { display: none; }
+
+  /* The sheet is out of flow, so nothing should reserve a column for it. */
+  .shell { grid-template-columns: minmax(0, 1fr); }
 }
 
 @media (max-width: 640px) {
   .brand-tag { display: none; }
   .clock { display: none; }
   .lang button { gap: 5px; padding: 6px 8px; }
+
+  /* At phone width the word does not fit beside three language buttons, and
+     the icon carries the meaning on its own. */
+  .filters-toggle span[data-i18n] { display: none; }
+  .filters-toggle { padding: 7px 9px; }
   .timeline { gap: 5px; padding: 6px; }
   .tl-today { padding: 0 9px; }
   .tl-day { min-width: 30px; }

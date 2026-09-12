@@ -48,6 +48,18 @@
     </div>
 
     <div class="topbar-tools">
+      <!-- Narrow layouts drop the left rail to keep the globe usable, which
+           used to take every filter with it. This brings them back as a panel. -->
+      <button type="button" id="filters-toggle" class="filters-toggle"
+              aria-expanded="false" aria-controls="rail-left"
+              data-i18n-aria="aria_filters" aria-label="Filters">
+        <svg viewBox="0 0 16 16" aria-hidden="true" focusable="false">
+          <path d="M2 4h12M4 8h8M6.5 12h3" stroke="currentColor" stroke-width="1.6"
+                stroke-linecap="round" fill="none"/>
+        </svg>
+        <span data-i18n="filters">Filters</span>
+        <span class="filters-badge" id="filters-badge" hidden></span>
+      </button>
       <div class="clock" title="Coordinated Universal Time">
         <span class="clock-tag">UTC</span>
         <time id="clock" class="clock-value">--:--:--</time>
@@ -84,7 +96,7 @@
     </div>
   </header>
 
-  <aside class="rail rail-left">
+  <aside class="rail rail-left" id="rail-left">
 
     <section class="card card-next" id="next-card">
       <h2 class="card-title" data-i18n="next_high">Next high-impact release</h2>
