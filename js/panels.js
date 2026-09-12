@@ -191,7 +191,7 @@ export function renderTimeline() {
       const segment = document.createElement('i');
       segment.className = 'tl-seg';
       segment.style.background = IMPACT_COLORS[impact];
-      segment.style.height = `${Math.max((value / busiest) * 100, 3)}%`;
+      segment.style.height = `${Math.max((value / busiest) * 100, 7)}%`;
       segment.style.opacity = impact >= 2 ? '0.95' : '0.5';
       bar.append(segment);
     }
@@ -201,8 +201,16 @@ export function renderTimeline() {
     host.append(cell);
   }
 
+  // Centre the selected day by moving this track only. scrollIntoView would
+  // also scroll any scrollable ancestor, which is how the left rail ended up
+  // scrolled past its first card.
   const selected = host.querySelector('.is-selected');
-  selected?.scrollIntoView({ block: 'nearest', inline: 'center', behavior: 'smooth' });
+  if (selected) {
+    host.scrollTo({
+      left: selected.offsetLeft - (host.clientWidth - selected.clientWidth) / 2,
+      behavior: 'smooth',
+    });
+  }
 }
 
 /* ------------------------------------------------------------- event list */
