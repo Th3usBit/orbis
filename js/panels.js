@@ -19,6 +19,20 @@ const $ = (id) => document.getElementById(id);
 
 /* ------------------------------------------------------------------ utils */
 
+/**
+ * A link target from the calendar, or null if it is not an ordinary web link.
+ *
+ * calendar.json is generated from third-party feeds, and in a fork it may come
+ * from anywhere. Every other field is rendered as text, which cannot execute;
+ * source_url becomes an href, which can. The collector already filters this,
+ * so the check here is the second layer rather than the only one.
+ */
+export function safeUrl(value) {
+  if (typeof value !== 'string') return null;
+  const url = value.trim();
+  return /^https?:\/\//i.test(url) ? url : null;
+}
+
 /** ISO 3166-1 alpha-2 to a flag emoji, via the regional indicator block. */
 export function flagOf(code) {
   if (!code || code.length !== 2) return '🏳';
@@ -411,9 +425,10 @@ function buildEventDetail(event) {
   if (event.period) meta.append(chipText(`${t('period')}: ${event.period}`));
   if (event.issuer) meta.append(chipText(`${t('issuer')}: ${event.issuer}`));
 
-  if (event.source_url) {
+  const sourceUrl = safeUrl(event.source_url);
+  if (sourceUrl) {
     const link = document.createElement('a');
-    link.href = event.source_url;
+    link.href = sourceUrl;
     link.target = '_blank';
     link.rel = 'noopener noreferrer';
     link.textContent = `${t('source')} ↗`;

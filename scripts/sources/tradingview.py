@@ -25,9 +25,20 @@ ENDPOINT = "https://economic-calendar.tradingview.com/events"
 # The endpoint gets unhappy with very wide ranges, so walk it in slices.
 CHUNK_DAYS = 7
 
+# source_url is the one field that reaches the browser as a link target rather
+# than as text. The feed is not ours, so only plain http(s) is carried through:
+# anything else (javascript:, data:) is dropped rather than published.
+SAFE_URL_SCHEMES = ("http://", "https://")
+
 # TradingView grades importance as -1 / 0 / 1. orbis uses 1..3 so that 0 can
 # mean "no market impact" (holidays).
 IMPORTANCE_TO_IMPACT = {-1: 1, 0: 2, 1: 3}
+
+
+def _safe_url(value: object) -> str | None:
+    """Return value if it is an ordinary web link, else None."""
+    url = (value or "").strip() if isinstance(value, str) else ""
+    return url if url.lower().startswith(SAFE_URL_SCHEMES) else None
 
 
 def _stamp(moment) -> str:
@@ -94,5 +105,5 @@ def _normalize(row: dict) -> dict | None:
         "period": (row.get("period") or "").strip() or None,
         "issuer": (row.get("source") or "").strip() or None,
         "source": ID,
-        "source_url": (row.get("source_url") or "").strip() or None,
+        "source_url": _safe_url(row.get("source_url")),
     }
