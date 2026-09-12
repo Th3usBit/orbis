@@ -280,7 +280,13 @@ def main() -> int:
     events, report = collect(window, countries, currencies)
 
     if not events:
-        print("No events collected - refusing to overwrite existing data.", file=sys.stderr)
+        # Every source failed. Almost always the network; say so, because the
+        # per-source errors above scroll past and mean little on a first run.
+        print("\n  No events collected from any source.", file=sys.stderr)
+        print("  Existing data left untouched.", file=sys.stderr)
+        if not any(entry["ok"] for entry in report):
+            print("  Every source failed to respond - check your internet"
+                  " connection, proxy or firewall.", file=sys.stderr)
         return 1
 
     payload = {
@@ -307,4 +313,7 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)

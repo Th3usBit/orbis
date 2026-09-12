@@ -22,7 +22,7 @@ if not defined PY (
 )
 
 rem --- Globe geometry: generated once, then cached in assets/ ---------------
-if not exist "assets\land-dots.json" (
+if not exist "assets\borders.json" (
   echo   [1/3] Building globe geometry ^(first run only^)...
   %PY% scripts\build_geometry.py || goto :failed
 ) else (
@@ -48,8 +48,15 @@ goto :eof
 
 :failed
 echo.
-echo   [x] Something went wrong above. If it was a network error, try:
-echo       start.bat offline
+echo   [x] Something went wrong above.
+echo.
+echo       The first run needs an internet connection: it downloads
+echo       public-domain map data and the economic calendar, neither of
+echo       which is committed to this repository. Check your connection
+echo       ^(and any proxy or firewall^) and try again.
+echo.
+echo       If you already have data from an earlier run:
+echo         start.bat offline
 echo.
 pause
 exit /b 1

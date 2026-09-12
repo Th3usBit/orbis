@@ -20,6 +20,7 @@ import json
 import math
 import os
 import sys
+import urllib.error
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -206,4 +207,14 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    try:
+        sys.exit(main())
+    except KeyboardInterrupt:
+        sys.exit(130)
+    except (urllib.error.URLError, OSError, TimeoutError) as error:
+        # A traceback here is noise: the only realistic cause is that the first
+        # run could not reach the network, and the reader needs that sentence
+        # rather than a stack.
+        print(f"\n  Could not download the map data: {error}", file=sys.stderr)
+        print("  The first run needs an internet connection.", file=sys.stderr)
+        sys.exit(1)
