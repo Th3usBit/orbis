@@ -25,7 +25,7 @@ O orbis põe os mesmos dados num globo giratório:
 - **Anéis pulsam** somente em divulgações que acontecem na próxima hora — nada anima por enfeite.
 - **Uma faixa de timeline** na base mostra a carga de cada dia da janela como um micro-gráfico empilhado, então uma semana pesada aparece antes de você clicar nela.
 
-Tudo é bilíngue (Português / English), incluindo os nomes dos indicadores traduzidos.
+Toda a interface fala Português, English e Español, incluindo nomes de indicadores e de países traduzidos. Na primeira visita ela adota o idioma do navegador e, depois disso, lembra a sua escolha.
 
 ## Começando
 
@@ -142,7 +142,8 @@ python scripts/fetch.py --days-back 14 --days-ahead 45
 Pull requests são bem-vindos. As contribuições mais fáceis e úteis:
 
 - **Adicionar um país.** Uma linha em `data/countries.json` com as coordenadas da capital e a moeda.
-- **Melhorar uma tradução.** `PHRASES_PT` em `js/i18n.js` mapeia nomes de indicadores do inglês para o português, frase mais longa primeiro. Qualquer frase não mapeada cai de volta para o inglês, então cobertura parcial é segura.
+- **Melhorar uma tradução.** `PHRASES` em `js/i18n.js` mapeia nomes de indicadores do inglês para cada idioma, frase mais longa primeiro. Qualquer frase não mapeada cai de volta para o inglês, então cobertura parcial é segura.
+- **Adicionar um idioma.** Três edições, sem build: um bloco em `UI` e uma tabela em `PHRASES` (ambos em `js/i18n.js`), uma coluna `name_xx` em `data/countries.json` e um botão com a bandeira no grupo `.lang` do `index.html`.
 - **Adicionar uma fonte.** Coloque um módulo em `scripts/sources/` expondo `ID`, `NAME`, `HOMEPAGE` e um `fetch()` que devolve o formato normalizado de evento, depois registre em `scripts/fetch.py`. Só fontes gratuitas e sem chave, por favor — essa restrição é o ponto do projeto.
 Antes de abrir um PR, rode as verificações da camada de estado contra os seus
 próprios dados recém-coletados:

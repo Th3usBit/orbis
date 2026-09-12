@@ -28,7 +28,7 @@
 </head>
 <body>
 
-<canvas id="stage" aria-label="Interactive 3D globe of world economic events"></canvas>
+<canvas id="stage" data-i18n-aria="aria_globe" aria-label="Interactive 3D globe of world economic events"></canvas>
 
 <div id="boot" class="boot">
   <div class="boot-mark"></div>
@@ -52,9 +52,34 @@
         <span class="clock-tag">UTC</span>
         <time id="clock" class="clock-value">--:--:--</time>
       </div>
-      <div class="lang" role="group" aria-label="Language">
-        <button type="button" data-lang="en" class="is-active">EN</button>
-        <button type="button" data-lang="pt">PT</button>
+      <div class="lang" role="group" data-i18n-aria="aria_lang" aria-label="Language">
+        <button type="button" data-lang="en" class="is-active" title="English">
+          <svg class="lang-flag" viewBox="0 0 60 40" aria-hidden="true" focusable="false">
+            <rect width="60" height="40" fill="#012169"/>
+            <path d="M0 0 60 40M60 0 0 40" stroke="#fff" stroke-width="9"/>
+            <path d="M0 0 60 40M60 0 0 40" stroke="#c8102e" stroke-width="4"/>
+            <path d="M30 0V40M0 20H60" stroke="#fff" stroke-width="14"/>
+            <path d="M30 0V40M0 20H60" stroke="#c8102e" stroke-width="8"/>
+          </svg>
+          <span>EN</span>
+        </button>
+        <button type="button" data-lang="pt" title="Português (Brasil)">
+          <svg class="lang-flag" viewBox="0 0 60 42" aria-hidden="true" focusable="false">
+            <clipPath id="flag-br-disc"><circle cx="30" cy="21" r="9.4"/></clipPath>
+            <rect width="60" height="42" fill="#009b3a"/>
+            <path d="M30 5 55 21 30 37 5 21Z" fill="#fedf00"/>
+            <circle cx="30" cy="21" r="9.4" fill="#002776"/>
+            <path d="M20.6 18.3a13 13 0 0 0 18.8 0" fill="none" stroke="#fff" stroke-width="2.6" clip-path="url(#flag-br-disc)"/>
+          </svg>
+          <span>PT</span>
+        </button>
+        <button type="button" data-lang="es" title="Español">
+          <svg class="lang-flag" viewBox="0 0 60 40" aria-hidden="true" focusable="false">
+            <rect width="60" height="40" fill="#aa151b"/>
+            <rect y="10" width="60" height="20" fill="#f1bf00"/>
+          </svg>
+          <span>ES</span>
+        </button>
       </div>
     </div>
   </header>
@@ -113,9 +138,9 @@
   </aside>
 
   <footer class="timeline">
-    <button type="button" class="tl-step" id="tl-prev" aria-label="Previous day">‹</button>
+    <button type="button" class="tl-step" id="tl-prev" data-i18n-aria="aria_prev_day" aria-label="Previous day">‹</button>
     <div class="tl-track" id="tl-track"></div>
-    <button type="button" class="tl-step" id="tl-next" aria-label="Next day">›</button>
+    <button type="button" class="tl-step" id="tl-next" data-i18n-aria="aria_next_day" aria-label="Next day">›</button>
     <button type="button" class="tl-today" id="tl-today" data-i18n="today">today</button>
   </footer>
 
