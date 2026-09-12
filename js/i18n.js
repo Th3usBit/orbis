@@ -699,7 +699,14 @@ function compile(table) {
   return [...table]
     .sort((a, b) => b[0].length - a[0].length)
     .map(([english, translated]) => [
-      new RegExp(`(^|[^${WORD}])${escapeForRegExp(english)}(?![${WORD}])`, 'g'),
+      // The feeds spell the same indicator with a space or a hyphen from one
+      // week to the next — "Non Farm Payrolls" and "Non-Farm Payrolls" are
+      // one release. Treat the two as interchangeable so a table entry does
+      // not need a row per spelling.
+      new RegExp(
+        `(^|[^${WORD}])${escapeForRegExp(english).replace(/ /g, '[ -]')}(?![${WORD}])`,
+        'g',
+      ),
       translated,
     ]);
 }

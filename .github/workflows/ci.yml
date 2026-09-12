@@ -54,3 +54,24 @@ jobs:
       # Guards the offline promise: fails if anything reaches for a CDN again.
       - name: Check the page depends on nothing remote
         run: node tests/offline.test.mjs .
+
+  oldest-python:
+    name: Python 3.9, the version the README promises
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # The matrix above runs a current Python, which would never notice a
+      # 3.10-only construct creeping in. One job on the declared minimum keeps
+      # "Python 3.9+" an assertion rather than an aspiration. Linux only: the
+      # collector touches no platform API, so the OS matrix above covers that
+      # axis and running both here would triple the bill for nothing.
+      - name: Collect the calendar
+        run: python scripts/fetch.py
+
+      - name: Build the globe geometry
+        run: python scripts/build_geometry.py
