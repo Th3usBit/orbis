@@ -236,7 +236,10 @@ body::after {
   backdrop-filter: blur(14px);
 }
 .lang button {
-  padding: 7px 11px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 10px;
   font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
@@ -245,6 +248,22 @@ body::after {
 }
 .lang button:hover { color: var(--ink); }
 .lang button.is-active { color: var(--bg); background: var(--accent); }
+
+/* A flag only earns its colour on the language you are actually reading — the
+   other two stay grey so the topbar has exactly one thing to look at. */
+.lang-flag {
+  width: 17px;
+  height: 12px;
+  flex: none;
+  border-radius: 2px;
+  outline: 1px solid rgb(255 255 255 / 0.2);
+  outline-offset: -1px;
+  filter: grayscale(0.9);
+  opacity: 0.5;
+  transition: filter 200ms ease, opacity 200ms ease;
+}
+.lang button:hover .lang-flag { filter: grayscale(0.35); opacity: 0.85; }
+.lang button.is-active .lang-flag { filter: none; opacity: 1; }
 
 /* --------------------------------------------------------------------------
    Cards / rails
@@ -771,6 +790,7 @@ body::after {
 @media (max-width: 640px) {
   .brand-tag { display: none; }
   .clock { display: none; }
+  .lang button { gap: 5px; padding: 6px 8px; }
   .timeline { gap: 5px; padding: 6px; }
   .tl-today { padding: 0 9px; }
   .tl-day { min-width: 30px; }

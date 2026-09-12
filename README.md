@@ -25,7 +25,7 @@ orbis plots the same data on a rotating globe:
 - **Rings pulse** only on releases landing within the next hour — nothing animates for decoration.
 - **A timeline strip** across the bottom shows the load of every day in the window as a stacked micro-chart, so a heavy week is visible before you click into it.
 
-Everything is bilingual (English / Português), including translated indicator names.
+The whole interface speaks English, Português and Español, including translated indicator names and country names. It picks your browser's language on first load and remembers the switch after that.
 
 ## Quick start
 
@@ -142,7 +142,8 @@ python scripts/fetch.py --days-back 14 --days-ahead 45
 Pull requests welcome. The easiest useful contributions:
 
 - **Add a country.** One line in `data/countries.json` with its capital's coordinates and currency.
-- **Improve a translation.** `PHRASES_PT` in `js/i18n.js` maps English indicator names to Portuguese, longest phrase first. Any unmapped phrase falls back to English, so partial coverage is safe.
+- **Improve a translation.** `PHRASES` in `js/i18n.js` maps English indicator names to each language, longest phrase first. Any unmapped phrase falls back to English, so partial coverage is safe.
+- **Add a language.** Three edits, no build step: a block in `UI` and a table in `PHRASES` (both in `js/i18n.js`), a `name_xx` column in `data/countries.json`, and a button with its flag in the `.lang` group in `index.html`.
 - **Add a source.** Drop a module in `scripts/sources/` exposing `ID`, `NAME`, `HOMEPAGE` and a `fetch()` that returns the normalized event shape, then register it in `scripts/fetch.py`. Sources that are free and key-free only, please — that constraint is the point of the project.
 Before opening a PR, run the state-layer checks against your own freshly
 fetched data:
