@@ -142,7 +142,9 @@ python scripts/fetch.py --days-back 14 --days-ahead 45
 Pull requests são bem-vindos. As contribuições mais fáceis e úteis:
 
 - **Adicionar um país.** Uma linha em `data/countries.json` com as coordenadas da capital e a moeda.
-- **Melhorar uma tradução.** `PHRASES` em `js/i18n.js` mapeia nomes de indicadores do inglês para cada idioma, frase mais longa primeiro. Qualquer frase não mapeada cai de volta para o inglês, então cobertura parcial é segura.
+- **Melhorar uma tradução.** `PHRASES` em `js/i18n.js` mapeia nomes de indicadores, feriados e períodos do inglês para cada idioma. Agrupe uma linha nova onde fizer sentido — a ordenação é resolvida na compilação, e toda regra é ancorada em fronteira de palavra, então nada dispara dentro de uma palavra maior. Qualquer frase não mapeada cai de volta para o inglês, então cobertura parcial é segura.
+
+  O calendário é reconstruído de hora em hora, então `tests/i18n.test.mjs` confere as tabelas contra o que as fontes publicaram de fato, não contra um fixture. Ele falha numa frase que nunca dispara, num idioma sem uma chave que os outros têm, e em qualquer título que saia emendado.
 - **Adicionar um idioma.** Três edições, sem build: um bloco em `UI` e uma tabela em `PHRASES` (ambos em `js/i18n.js`), uma coluna `name_xx` em `data/countries.json` e um botão com a bandeira no grupo `.lang` do `index.html`.
 - **Adicionar uma fonte.** Coloque um módulo em `scripts/sources/` expondo `ID`, `NAME`, `HOMEPAGE` e um `fetch()` que devolve o formato normalizado de evento, depois registre em `scripts/fetch.py`. Só fontes gratuitas e sem chave, por favor — essa restrição é o ponto do projeto.
 Antes de abrir um PR, rode as verificações da camada de estado contra os seus
@@ -151,6 +153,7 @@ próprios dados recém-coletados:
 ```bash
 python scripts/fetch.py
 node tests/store.test.mjs .
+node tests/i18n.test.mjs .
 ```
 
 - **Afinar o classificador.** `CATEGORY_PATTERNS` em `scripts/sources/classify.py` decide em qual categoria um evento cai. Eventos mal classificados são fáceis de notar e fáceis de corrigir.
