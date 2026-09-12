@@ -45,3 +45,7 @@ jobs:
 
       - name: Check the translation tables
         run: node tests/i18n.test.mjs .
+
+      # Guards the offline promise: fails if anything reaches for a CDN again.
+      - name: Check the page depends on nothing remote
+        run: node tests/offline.test.mjs .

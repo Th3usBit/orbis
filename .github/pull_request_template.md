@@ -9,4 +9,5 @@
 - [ ] `python scripts/fetch.py` still succeeds
 - [ ] `node tests/store.test.mjs .` passes
 - [ ] `node tests/i18n.test.mjs .` passes
+- [ ] `node tests/offline.test.mjs .` passes
 - [ ] Tried it in the browser on a fresh clone

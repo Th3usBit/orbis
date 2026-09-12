@@ -57,7 +57,7 @@ Depois de gerados, os dados são seus. O `offline` pula os coletores e serve o q
 start.bat offline
 ```
 
-Ele pula a *busca*, não toda requisição: a página ainda carrega o Three.js e as fontes de um CDN, então uma máquina realmente desconectada vê os painéis sem o globo. Vendorizar o Three.js está no roadmap; até lá, `offline` significa "não rebuscar o calendário", não "funciona no avião".
+Isso é offline de verdade: o Three.js e as fontes estão versionados em [`vendor/`](vendor/), então a página não carrega nada de CDN e nenhuma requisição do seu navegador sai da origem. Com globo e tudo, no avião.
 
 ## Como funciona
 
@@ -122,11 +122,12 @@ orbis/
 │   ├── build_geometry.py   TopoJSON → matriz de pontos + fronteiras (roda uma vez)
 │   ├── serve.py            servidor estático de dev, sem cache
 │   └── sources/            um módulo por provedor
-├── tests/store.test.mjs    testes da camada de estado (opcional, precisa de Node)
+├── tests/                  camada de estado, traduções e a garantia de offline
 ├── data/
 │   ├── calendar.json       gerado, fora do git — o único arquivo que a página lê
 │   └── countries.json      referência mantida à mão (capitais, moedas)
-└── assets/                 gerado, fora do git — geometria do globo
+├── assets/                 gerado, fora do git — geometria do globo
+└── vendor/                 three.js e as fontes, versionados — sem CDN
 ```
 
 Tudo marcado como *gerado* não existe num clone novo e é reconstruído pelo `start`. Só o `countries.json` é versionado, por ser referência escrita à mão e não um retrato baixado.
@@ -174,6 +175,7 @@ próprios dados recém-coletados:
 python scripts/fetch.py
 node tests/store.test.mjs .
 node tests/i18n.test.mjs .
+node tests/offline.test.mjs .
 ```
 
 - **Afinar o classificador.** `CATEGORY_PATTERNS` em `scripts/sources/classify.py` decide em qual categoria um evento cai. Eventos mal classificados são fáceis de notar e fáceis de corrigir.
@@ -183,7 +185,7 @@ node tests/i18n.test.mjs .
 - [ ] Integração opcional com o FRED para datas oficiais de divulgação dos EUA (opt-in por chave)
 - [ ] Calendários de reunião de bancos centrais coletados direto das instituições
 - [ ] Índice histórico de surpresa por país
-- [ ] three.js embarcado no repo para a página funcionar 100% offline
+- [x] three.js embarcado no repo para a página funcionar 100% offline
 - [ ] Exportação iCal dos eventos que passam pelos seus filtros
 
 ## Aviso
@@ -193,6 +195,8 @@ O orbis é uma ferramenta informativa e educacional. Ele agrega dados de agenda 
 ## Licença
 
 [MIT](LICENSE) — **o código**: use, forke, venda, sem exigência além do aviso de licença.
+
+O código de terceiros em [`vendor/`](vendor/) mantém a licença própria: three.js é MIT, Inter e JetBrains Mono são SIL OFL 1.1, com o texto de cada licença ao lado dos arquivos que ela cobre.
 
 **Os dados são outra história.** O orbis não distribui nenhum: o calendário é buscado por você, em tempo de execução, direto dos provedores listados acima, e cada um mantém os direitos que tiver sobre o próprio feed. O `calendar.json` gerado não é coberto por esta licença, não é versionado neste repositório e não é redistribuído por ele. Cada evento aponta de volta para a sua fonte, e o painel de Fontes credita cada provedor pelo nome. A geometria da Natural Earth é domínio público.
 

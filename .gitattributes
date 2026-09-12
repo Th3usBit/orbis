@@ -6,3 +6,9 @@
 
 # Shell entry point must stay executable on a fresh clone.
 start.sh text eol=lf
+
+# Third-party, committed so the page needs no CDN. Not our code: keep it out of
+# diffs and out of the repository's language statistics.
+vendor/** linguist-vendored
+vendor/three/*.min.js -diff
+*.woff2 binary

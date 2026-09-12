@@ -10,11 +10,17 @@ and `assets/borders.json` are generated artefacts and are git-ignored. If a
 diff of yours contains one of them, something went wrong — do not commit it,
 and never use `git add -f` on them.
 
-**No dependencies.** The collector uses the Python standard library and nothing
-else: no `requirements.txt`, no `pip install`. The site uses ES modules and
-Three.js from a CDN: no `package.json`, no bundler, no build step. A change
-that introduces a package manager is a change to the project's premise, so
-open an issue first.
+**No dependencies, and no CDN.** The collector uses the Python standard library
+and nothing else: no `requirements.txt`, no `pip install`. The site is plain ES
+modules: no `package.json`, no bundler, no build step. A change that introduces
+a package manager is a change to the project's premise, so open an issue first.
+
+The one exception is `vendor/`, where three.js and the two fonts are committed
+so the page loads nothing from a third party and works with no network at all.
+Adding a file there is a deliberate act, not a convenience: it means shipping
+someone else's code, with their licence, forever. Do not point the page at a
+CDN to avoid it — that trades every viewer's privacy and every offline user's
+globe for a smaller diff.
 
 **No keys, no backend.** Every source orbis reads is public and unauthenticated.
 A source that needs an API key does not belong here, because it would break the
@@ -44,6 +50,7 @@ python scripts/build_geometry.py    # regenerate assets/
 python scripts/fetch.py             # regenerate data/calendar.json
 node tests/store.test.mjs .         # smoke-test the state layer (needs Node 18+)
 node tests/i18n.test.mjs .          # check the EN/PT/ES translation tables
+node tests/offline.test.mjs .       # check nothing loads from a CDN
 ```
 
 CI runs exactly this on Linux, Windows and macOS against a fresh clone. If it

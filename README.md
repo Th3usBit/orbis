@@ -57,7 +57,7 @@ Once generated, the data is yours. `offline` skips the collectors and serves wha
 start.bat offline
 ```
 
-It skips the *fetching*, not every request: the page still pulls Three.js and its fonts from a CDN, so a truly disconnected machine gets the panels without the globe. Vendoring Three.js is on the roadmap; until then `offline` means "do not re-fetch the calendar", not "works on a plane".
+This is real offline: Three.js and the fonts are committed under [`vendor/`](vendor/), so the page loads nothing from a CDN and no request from your browser leaves the origin. Globe and all, on a plane.
 
 ## How it works
 
@@ -122,11 +122,12 @@ orbis/
 │   ├── build_geometry.py   TopoJSON → land dot matrix + borders (run once)
 │   ├── serve.py            no-cache static dev server
 │   └── sources/            one module per provider
-├── tests/store.test.mjs    smoke tests for the state layer (optional, needs Node)
+├── tests/                  state layer, translations, and the offline guarantee
 ├── data/
 │   ├── calendar.json       generated, git-ignored — the only file the page reads
 │   └── countries.json      hand-maintained reference (capitals, currencies)
-└── assets/                 generated, git-ignored — globe geometry
+├── assets/                 generated, git-ignored — globe geometry
+└── vendor/                 three.js and the fonts, committed — no CDN
 ```
 
 Everything marked *generated* is absent from a fresh clone and rebuilt by `start`. Only `countries.json` is committed, because it is hand-written reference data rather than a fetched snapshot.
@@ -174,6 +175,7 @@ fetched data:
 python scripts/fetch.py
 node tests/store.test.mjs .
 node tests/i18n.test.mjs .
+node tests/offline.test.mjs .
 ```
 
 - **Sharpen the classifier.** `CATEGORY_PATTERNS` in `scripts/sources/classify.py` decides which bucket an event falls into. Misfiled events are easy to spot and easy to fix.
@@ -183,7 +185,7 @@ node tests/i18n.test.mjs .
 - [ ] Optional FRED integration for authoritative US release dates (opt-in via key)
 - [ ] Central bank meeting calendars scraped from the institutions themselves
 - [ ] Historical surprise index per country
-- [ ] Vendored three.js so the page works fully offline
+- [x] Vendored three.js so the page works fully offline
 - [ ] iCal export of the events matching your filters
 
 ## Disclaimer
@@ -193,6 +195,8 @@ orbis is an informational and educational tool. It aggregates publicly published
 ## License
 
 [MIT](LICENSE) — **the code**: use it, fork it, sell it, no attribution beyond the licence notice required.
+
+Third-party code under [`vendor/`](vendor/) keeps its own licence: three.js is MIT, Inter and JetBrains Mono are SIL OFL 1.1, each licence text sitting beside the files it covers.
 
 **The data is a separate matter.** orbis distributes none of it: the calendar is fetched by you, at runtime, from the providers listed above, and each provider retains whatever rights it has in its own feed. The generated `calendar.json` is not covered by this licence, is not committed to this repository, and is not redistributed by it. Every event links back to its source, and the Sources panel credits each provider by name. Natural Earth geometry is public domain.
 
