@@ -47,14 +47,15 @@ cd orbis
 
 É toda a instalação. O `start` encontra o Python 3, gera a geometria do globo na primeira execução, busca o calendário mais recente e abre a página em `http://127.0.0.1:8080`.
 
-O único requisito é **Python 3.9+**, e apenas a biblioteca padrão é usada — não existe `pip install`, nem `package.json`, nem ferramenta de build.
+O único requisito é **Python 3.9+**, e apenas a biblioteca padrão é usada — não existe `pip install`, nem `package.json`, nem ferramenta de build. O Node 18+ só é preciso para rodar os testes abaixo; o site nunca precisa dele.
 
-**O repositório não contém dados.** Um clone traz apenas o código-fonte: o calendário e a geometria do globo são gerados na sua máquina, na primeira execução, a partir de endpoints públicos. Isso é proposital — ninguém herda um retrato velho da sessão de outra pessoa, e o histórico do git não carrega um arquivo de 550 KB que muda toda hora. A primeira execução precisa de internet e leva cerca de um minuto; as seguintes são instantâneas.
+**O repositório não contém dados.** Um clone traz apenas o código-fonte: o calendário e a geometria do globo são gerados na sua máquina, na primeira execução, a partir de endpoints públicos. Isso é proposital — ninguém herda um retrato velho da sessão de outra pessoa, e o histórico do git não carrega um arquivo de meio megabyte que muda toda hora. A primeira execução precisa de internet e leva cerca de um minuto; as seguintes são instantâneas.
 
 Depois de gerados, os dados são seus. O `offline` pula os coletores e serve o que você já tem:
 
 ```bat
-start.bat offline
+start.bat offline     :: Windows
+./start.sh offline    # Linux / macOS
 ```
 
 Isso é offline de verdade: o Three.js e as fontes estão versionados em [`vendor/`](vendor/), então a página não carrega nada de CDN e nenhuma requisição do seu navegador sai da origem. Com globo e tudo, no avião.
@@ -116,7 +117,7 @@ orbis/
 │   ├── globe.js            cena three.js, shaders, voos de câmera
 │   ├── store.js            estado e todos os seletores derivados
 │   ├── panels.js           renderização DOM das laterais e da timeline
-│   └── i18n.js             textos EN/PT-BR + tradução de indicadores
+│   └── i18n.js             textos EN/PT/ES + tradução de indicadores
 ├── scripts/
 │   ├── fetch.py            coleta → reconcilia → publica
 │   ├── build_geometry.py   TopoJSON → matriz de pontos + fronteiras (roda uma vez)
@@ -163,7 +164,7 @@ Veja o [CONTRIBUTING.md](CONTRIBUTING.md) para o setup, as regras da casa e como
 As contribuições mais fáceis e úteis:
 
 - **Adicionar um país.** Uma linha em `data/countries.json` com as coordenadas da capital e a moeda.
-- **Melhorar uma tradução.** `PHRASES` em `js/i18n.js` mapeia nomes de indicadores, feriados e períodos do inglês para cada idioma. Agrupe uma linha nova onde fizer sentido — a ordenação é resolvida na compilação, e toda regra é ancorada em fronteira de palavra, então nada dispara dentro de uma palavra maior. Qualquer frase não mapeada cai de volta para o inglês, então cobertura parcial é segura.
+- **Melhorar uma tradução.** `PHRASES` em `js/i18n.js` mapeia nomes de indicadores, feriados e períodos do inglês para cada idioma. Agrupe uma linha nova onde fizer sentido — a ordenação é resolvida no carregamento, e toda regra é ancorada em fronteira de palavra, então nada dispara dentro de uma palavra maior. Qualquer frase não mapeada cai de volta para o inglês, então cobertura parcial é segura.
 
   O calendário é reconstruído a cada execução, então `tests/i18n.test.mjs` confere as tabelas contra o que as fontes publicaram de fato, não contra um fixture. Ele falha numa frase que nunca dispara, num idioma sem uma chave que os outros têm, e em qualquer título que saia emendado.
 - **Adicionar um idioma.** Três edições, sem build: um bloco em `UI` e uma tabela em `PHRASES` (ambos em `js/i18n.js`), uma coluna `name_xx` em `data/countries.json` e um botão com a bandeira no grupo `.lang` do `index.html`.

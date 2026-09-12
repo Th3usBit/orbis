@@ -26,8 +26,8 @@ Licence texts sit next to the files they cover: `three/LICENSE`,
 the repository root covers orbis itself, not these.
 
 Both font families are *variable* fonts, so one file per subset carries every
-weight the design uses — four files instead of the fourteen `@font-face` blocks
-Google's stylesheet would otherwise hand out. Only `latin` and `latin-ext` are
+weight the design uses — four `@font-face` blocks instead of the fourteen
+Google's stylesheet would otherwise hand out for these families. Only `latin` and `latin-ext` are
 vendored, which is what English, Portuguese and Spanish need; add the subset
 file and a `@font-face` block in `fonts.css` if you add a language that does not.
 
@@ -46,8 +46,9 @@ Take both build files: since r171 `three.module` is a thin wrapper that imports
 `./three.core.min.js`, and fetching one without the other breaks the page in a
 way no test catches until the globe fails to draw.
 
-Then open the page and rotate the globe. `js/globe.js` uses 25 three.js classes
-and its own shaders; a major version bump can change either.
+Then open the page and rotate the globe. `js/globe.js` leans on about
+twenty-five three.js classes and its own shaders; a major version bump can
+change either.
 
 ## Updating the fonts
 

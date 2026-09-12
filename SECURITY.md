@@ -14,8 +14,10 @@ reporting:
 - Injection through calendar data rendered into the DOM (event titles and
   country names come from third-party feeds and must never be trusted as HTML).
 - A dependency-free claim that turns out to be false — anything executing
-  unreviewed remote code at build or run time.
-- Supply-chain concerns with the pinned CDN assets in `index.html`.
+  unreviewed remote code at build or run time, or any request the page makes to
+  a host other than its own origin.
+- Supply-chain concerns with the third-party files under `vendor/` — three.js
+  or a font arriving modified, or a bump that pulls in something it should not.
 
 Not in scope: the accuracy, availability or licensing of upstream calendar data,
 and anything you can only trigger by pointing the collector at a host you

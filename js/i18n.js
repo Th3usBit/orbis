@@ -6,9 +6,10 @@
  * match first, falling back to the original. A partial translation beats a
  * wrong one, so anything unknown is left untouched.
  *
- * Adding a language means three things: a block in UI, a phrase table in
- * PHRASES, and a name_xx column in data/countries.json. Everything else —
- * date formats, the document title, the flag in the switcher — follows.
+ * Adding a language means four edits across three files: a block in UI and a
+ * phrase table in PHRASES here, a name_xx column in data/countries.json, and a
+ * button with its flag in index.html. Everything else — date formats, the
+ * document title, the switcher itself — follows.
  */
 
 export const LANGS = ['en', 'pt', 'es'];

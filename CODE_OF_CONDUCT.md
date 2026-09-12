@@ -55,9 +55,11 @@ an individual is officially representing the community in public spaces.
 ## Enforcement
 
 Instances of abusive, harassing, or otherwise unacceptable behavior may be
-reported to the community leaders responsible for enforcement through a private
-report on the repository's issue tracker or via GitHub Security Advisories.
-All complaints will be reviewed and investigated promptly and fairly.
+reported privately to the maintainers through GitHub Security Advisories
+(**Security -> Report a vulnerability** on the repository page), which opens a
+thread only the maintainers can see. GitHub Issues are public, so please do not
+use them to report an incident. All complaints will be reviewed and investigated
+promptly and fairly.
 
 All community leaders are obligated to respect the privacy and security of the
 reporter of any incident.

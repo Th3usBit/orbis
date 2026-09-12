@@ -47,14 +47,15 @@ cd orbis
 
 That is the whole setup. `start` finds Python 3, builds the globe geometry on first run, fetches the latest calendar, and opens the page at `http://127.0.0.1:8080`.
 
-The only requirement is **Python 3.9+**, and only the standard library is used — there is no `pip install` step, no `package.json`, no build tool.
+The only requirement is **Python 3.9+**, and only the standard library is used — there is no `pip install` step, no `package.json`, no build tool. Node 18+ is needed only to run the tests below; the site itself never needs it.
 
-**The repository ships no data.** A clone contains source code only: the calendar and the globe geometry are generated on your machine, on first run, from public endpoints. That is deliberate — nobody inherits a stale snapshot of somebody else's session, and the git history stays free of a 550 KB file that changes every hour. The first run needs a network connection and takes about a minute; every run after that is instant.
+**The repository ships no data.** A clone contains source code only: the calendar and the globe geometry are generated on your machine, on first run, from public endpoints. That is deliberate — nobody inherits a stale snapshot of somebody else's session, and the git history stays free of a half-megabyte file that changes every hour. The first run needs a network connection and takes about a minute; every run after that is instant.
 
 Once generated, the data is yours. `offline` skips the collectors and serves what you already have:
 
 ```bat
-start.bat offline
+start.bat offline     :: Windows
+./start.sh offline    # Linux / macOS
 ```
 
 This is real offline: Three.js and the fonts are committed under [`vendor/`](vendor/), so the page loads nothing from a CDN and no request from your browser leaves the origin. Globe and all, on a plane.
@@ -116,7 +117,7 @@ orbis/
 │   ├── globe.js            three.js scene, shaders, camera flights
 │   ├── store.js            state and every derived selector
 │   ├── panels.js           DOM rendering for the rails and timeline
-│   └── i18n.js             EN/PT-BR strings + indicator translation
+│   └── i18n.js             EN/PT/ES strings + indicator translation
 ├── scripts/
 │   ├── fetch.py            collect → reconcile → publish
 │   ├── build_geometry.py   TopoJSON → land dot matrix + borders (run once)
@@ -163,10 +164,10 @@ See [CONTRIBUTING.md](CONTRIBUTING.md) for setup, the house rules and how to add
 The easiest useful contributions:
 
 - **Add a country.** One line in `data/countries.json` with its capital's coordinates and currency.
-- **Improve a translation.** `PHRASES` in `js/i18n.js` maps English indicator, holiday and period names to each language. Group a new row wherever it belongs — ordering is handled at compile time, and every rule is anchored to word edges, so nothing fires inside a longer word. Any unmapped phrase falls back to English, so partial coverage is safe.
+- **Improve a translation.** `PHRASES` in `js/i18n.js` maps English indicator, holiday and period names to each language. Group a new row wherever it belongs — ordering is handled on load, and every rule is anchored to word edges, so nothing fires inside a longer word. Any unmapped phrase falls back to English, so partial coverage is safe.
 
   The calendar is rebuilt on every run, so `tests/i18n.test.mjs` checks the tables against whatever the feeds published rather than against a fixture. It fails on a phrase that never fires, a language missing a key the others have, and on any title that comes out spliced.
-- **Add a language.** Three edits, no build step: a block in `UI` and a table in `PHRASES` (both in `js/i18n.js`), a `name_xx` column in `data/countries.json`, and a button with its flag in the `.lang` group in `index.html`.
+- **Add a language.** Four edits across three files, no build step: a block in `UI` and a table in `PHRASES` (both in `js/i18n.js`), a `name_xx` column in `data/countries.json`, and a button with its flag in the `.lang` group in `index.html`.
 - **Add a source.** Drop a module in `scripts/sources/` exposing `ID`, `NAME`, `HOMEPAGE` and a `fetch()` that returns the normalized event shape, then register it in `scripts/fetch.py`. Sources that are free and key-free only, please — that constraint is the point of the project.
 Before opening a PR, run the state-layer checks against your own freshly
 fetched data:

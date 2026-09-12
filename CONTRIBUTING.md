@@ -34,8 +34,10 @@ cd orbis
 ./start.sh          # Windows: start.bat
 ```
 
-The first run builds the globe geometry (~30s, downloads public-domain Natural
-Earth data), collects the calendar, and opens `http://127.0.0.1:8080`.
+The first run builds the globe geometry (downloads public-domain Natural Earth
+data), collects the calendar, and opens `http://127.0.0.1:8080` — about a minute
+in total. If port 8080 is taken, `serve.py` moves to the next free one and
+prints where it landed.
 
 Working offline afterwards:
 
@@ -58,14 +60,15 @@ passes locally on a clean checkout, it will pass there.
 
 ## Adding or improving a language
 
-The UI speaks English, Portuguêse and Spanish. Everything lives in `js/i18n.js`:
+The UI speaks English, Portuguese and Spanish. Everything lives in `js/i18n.js`:
 a `UI` block of interface strings and a `PHRASES` table translating indicator
 names, plus a `name_xx` column per country in `data/countries.json`.
 
-A fourth language is a data edit, not a code change: add a `UI` block, a
-`PHRASES` table, the country column and a button. `tests/i18n.test.mjs` enforces
-that every language carries the same keys, so a missing string fails the build
-rather than silently falling back.
+A fourth language is a data edit, not a code change: four edits across three
+files — a `UI` block and a `PHRASES` table in `js/i18n.js`, a `name_xx` column
+in `data/countries.json`, and a button with its flag in `index.html`. `tests/i18n.test.mjs` enforces
+that every language carries the same keys, so a missing string fails CI rather
+than silently falling back.
 
 Phrase rules are anchored to word edges, so a short rule cannot fire inside a
 longer word. Keep it that way — the test probes each rule for exactly this.

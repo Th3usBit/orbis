@@ -219,6 +219,11 @@ export async function createGlobe(canvas, handlers = {}, options = {}) {
   controls.maxDistance = 6.5;
   controls.autoRotateSpeed = 0.22;
 
+  // A globe that spins on its own is exactly what prefers-reduced-motion is
+  // asking about, and CSS cannot reach a WebGL scene. Read it live: the viewer
+  // may flip the setting with the page already open.
+  const stillness = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+
   const world = new THREE.Group();
   scene.add(world);
 
@@ -544,7 +549,8 @@ export async function createGlobe(canvas, handlers = {}, options = {}) {
     }
 
     // Idle spin, suspended whenever the viewer is doing something.
-    controls.autoRotate = !flight && !intro && !highlighted && !hovered
+    controls.autoRotate = !stillness?.matches
+      && !flight && !intro && !highlighted && !hovered
       && (now - lastInteraction > IDLE_BEFORE_SPIN);
 
     // Ease the sun toward its target so scrubbing days sweeps the terminator.
