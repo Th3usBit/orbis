@@ -232,7 +232,6 @@ body::after {
   border-radius: var(--radius-sm);
   background: var(--panel);
   backdrop-filter: blur(14px);
-  cursor: help;
 }
 
 /* Says which part of the world the clock belongs to, and by how far it differs
