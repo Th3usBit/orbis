@@ -6,6 +6,20 @@
 #
 # Forks: this runs only after you enable Pages (Settings -> Pages -> Source:
 # GitHub Actions). Until then it is skipped, not failed.
+#
+# This workflow is the only thing that refreshes the data. The site has no
+# backend: calendar.json is baked into the artefact, so the published calendar
+# is exactly as old as the last deploy. Two consequences worth knowing:
+#
+#   * GitHub disables a scheduled workflow in a public repository after 60 days
+#     with no activity. Nothing then rebuilds, and because the collector only
+#     looks 21 days ahead, the calendar empties out about three weeks later
+#     while the site keeps serving happily. Re-enable it from the Actions tab,
+#     or with `gh workflow enable "Deploy to Pages"`.
+#   * A scheduled run is not a promise. GitHub delays the schedule event under
+#     load and may drop queued runs outright, which is why the cron sits at
+#     minute 17 rather than on the hour. Missing one is harmless -- the window
+#     is three weeks deep -- but missing every one is the case above.
 
 name: Deploy to Pages
 

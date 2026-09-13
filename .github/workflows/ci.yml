@@ -36,9 +36,13 @@ jobs:
       - name: Collect the calendar
         run: python scripts/fetch.py
 
+      # lts/* rather than a pinned major: Node 20 went end-of-life in April
+      # 2026 and is being removed from the runners, and the tests use nothing
+      # newer than `node:` core imports and top-level await. Tracking LTS means
+      # this line does not need revisiting at the next end-of-life.
       - uses: actions/setup-node@v4
         with:
-          node-version: '20'
+          node-version: 'lts/*'
 
       - name: Smoke-test the state layer
         run: node tests/store.test.mjs .

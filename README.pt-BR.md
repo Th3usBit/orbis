@@ -155,6 +155,8 @@ O orbis foi feito para ser forkado e auto-hospedado, sem nada para configurar e 
 
 O seu fork gera a própria geometria, coleta o próprio calendário e publica na sua URL `github.io`. Nenhum segredo para adicionar, nenhuma chave de API, nenhuma conta em provedor de dados e nenhum bot commitando dados nas suas branches. A reconstrução agendada roda a cada seis horas; se preferir que não rode, apague o bloco `schedule:` em `.github/workflows/pages.yml`.
 
+Essa reconstrução é a única coisa que mantém o calendário publicado atual — o site não tem backend, então os dados têm exatamente a idade do último deploy. **O GitHub desativa um workflow agendado em repositório público após 60 dias sem atividade**, e como o coletor só enxerga 21 dias à frente, um fork deixado de lado por dois meses silencia e, cerca de três semanas depois, passa a servir um calendário vazio sem que nada pareça quebrado. Se você não faz push no seu fork com frequência, confira a aba Actions de vez em quando, ou reative com `gh workflow enable "Deploy to Pages"`.
+
 O `CI` roda o mesmo build no Linux, Windows e macOS a partir de um checkout limpo — é a verificação de que o seu fork continua cumprindo a promessa de clonar e rodar.
 
 ## Contribuindo

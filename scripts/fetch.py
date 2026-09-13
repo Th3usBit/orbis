@@ -271,6 +271,12 @@ def main() -> int:
     parser.add_argument("--days-back", type=int, default=7)
     parser.add_argument("--days-ahead", type=int, default=21)
     parser.add_argument("--out", default=os.path.join(DATA, "calendar.json"))
+    parser.add_argument(
+        "--allow-partial",
+        action="store_true",
+        help="Publish even when the primary source failed. Off by default:"
+             " see the comment on partial runs in main().",
+    )
     args = parser.parse_args()
 
     window = Window(args.days_back, args.days_ahead)
@@ -287,6 +293,33 @@ def main() -> int:
         if not any(entry["ok"] for entry in report):
             print("  Every source failed to respond - check your internet"
                   " connection, proxy or firewall.", file=sys.stderr)
+        return 1
+
+    # A partial run is the dangerous one, because it looks like a good run.
+    #
+    # The primary feed carries ~96% of the calendar; the cross-check and the
+    # holiday feed together carry the rest. So when the primary alone fails,
+    # `events` is not empty -- it is about 90 rows instead of 1900 -- and every
+    # check downstream passes: the collector exits 0, the tests assert only
+    # that events exist, and the deploy publishes a calendar that has quietly
+    # lost nineteen releases in twenty. Refusing to publish is the honest
+    # outcome: a stale calendar with a known date beats a current-looking one
+    # that is missing almost everything.
+    #
+    # Keyed on the declared role rather than on a source name, so a fork that
+    # swaps its primary feed inherits the guard without editing this.
+    failed_primary = [s for s in report if s["role"] == "primary" and not s["ok"]]
+    if failed_primary and not args.allow_partial:
+        for source in failed_primary:
+            print(f"\n  The primary source ({source['id']}) failed: "
+                  f"{source.get('error', 'unknown error')}", file=sys.stderr)
+        kept = sum(s["events"] for s in report if s["ok"])
+        print(f"  Only {kept} events came from the remaining sources, against"
+              f" the ~1800 a full run collects.", file=sys.stderr)
+        print("  Refusing to publish a calendar that is missing most of its"
+              " events; existing data left untouched.", file=sys.stderr)
+        print("  Re-run when the source is back, or pass --allow-partial to"
+              " publish anyway.", file=sys.stderr)
         return 1
 
     payload = {

@@ -155,6 +155,8 @@ orbis is designed to be forked and self-hosted, with nothing to configure and no
 
 Your fork builds its own geometry, collects its own calendar and publishes to your own `github.io` URL. No secrets to add, no API keys, no account with any data provider, and no bot committing data into your branches. The scheduled rebuild runs every six hours; if you would rather it did not run at all, delete the `schedule:` block in `.github/workflows/pages.yml`.
 
+That rebuild is the only thing that keeps the published calendar current — the site has no backend, so the data is exactly as old as the last deploy. **GitHub disables a scheduled workflow in a public repository after 60 days without activity**, and since the collector only looks 21 days ahead, a fork left alone for two months goes quiet and then, about three weeks later, starts serving an empty calendar without anything appearing to be broken. If you are not pushing to your fork regularly, check the Actions tab now and then, or re-enable it with `gh workflow enable "Deploy to Pages"`.
+
 `CI` runs the same build on Linux, Windows and macOS against a clean checkout, which is the check that your fork still satisfies the clone-and-run promise.
 
 ## Contributing
