@@ -13,6 +13,10 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const ROOT = process.argv[2];
+if (!ROOT) {
+  console.error('usage: node tests/store.test.mjs <repo root>');
+  process.exit(2);
+}
 
 // Shim the browser fetch onto the local filesystem.
 globalThis.fetch = async (url) => {

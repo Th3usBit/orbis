@@ -689,6 +689,18 @@ export function regionLabel(region) {
 }
 
 /**
+ * A hyphen binds like a letter. Treating it as a gap let "Bill Auction" fire
+ * inside "T-Bill Auction" and, worse, let "Monetary Policy Meeting" fire
+ * inside the ECB's "Non-Monetary Policy Meeting" — inverting the meaning
+ * rather than merely mangling the spelling.
+ */
+const WORD = 'A-Za-z0-9-';
+
+function escapeForRegExp(text) {
+  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+/**
  * Compiled once per language: longest phrase first, each anchored to word
  * edges.
  *
@@ -704,18 +716,6 @@ export function regionLabel(region) {
  * The leading edge is a capture group rather than a lookbehind, so the page
  * still runs on Safari before 16.4.
  */
-/**
- * A hyphen binds like a letter. Treating it as a gap let "Bill Auction" fire
- * inside "T-Bill Auction" and, worse, let "Monetary Policy Meeting" fire
- * inside the ECB's "Non-Monetary Policy Meeting" — inverting the meaning
- * rather than merely mangling the spelling.
- */
-const WORD = 'A-Za-z0-9-';
-
-function escapeForRegExp(text) {
-  return text.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-}
-
 function compile(table) {
   return [...table]
     .sort((a, b) => b[0].length - a[0].length)

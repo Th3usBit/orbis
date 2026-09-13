@@ -35,12 +35,16 @@ def fetch(window, currency_to_country: dict[str, str]) -> list[dict]:
     """Return normalized events from all three weekly feeds."""
     events: list[dict] = []
     seen: set[str] = set()
+    failed = 0
 
     for url in FEEDS:
         try:
             rows = get_json(url)
         except RuntimeError:
-            # A single weekly feed being down must not fail the whole run.
+            # A single weekly feed being down must not fail the whole run:
+            # last week and next week each carry a third of the window, and
+            # two out of three is still a useful cross-check.
+            failed += 1
             continue
 
         if not isinstance(rows, list):
@@ -56,6 +60,13 @@ def fetch(window, currency_to_country: dict[str, str]) -> list[dict]:
                 continue
             seen.add(event["id"])
             events.append(event)
+
+    # All three down is not a quiet week, it is an outage, and it has to reach
+    # collect() as one so the source is recorded as failed rather than as ok
+    # with nothing to say. It also keeps the primary-source guard in fetch.py
+    # meaningful for a fork that promotes this feed to primary.
+    if failed == len(FEEDS):
+        raise RuntimeError(f"all {len(FEEDS)} weekly feeds failed")
 
     return events
 

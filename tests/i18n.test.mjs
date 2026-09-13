@@ -15,6 +15,10 @@ import { pathToFileURL } from 'node:url';
 import path from 'node:path';
 
 const ROOT = process.argv[2];
+if (!ROOT) {
+  console.error('usage: node tests/i18n.test.mjs <repo root>');
+  process.exit(2);
+}
 
 // setLang writes to the document; the rest of the module never touches the DOM.
 globalThis.document = { documentElement: { dataset: {} } };
@@ -164,7 +168,7 @@ for (const lang of LANGS) {
 console.log('\n=== ui strings ===');
 
 const html = await readFile(path.join(ROOT, 'index.html'), 'utf8');
-const used = [...html.matchAll(/data-i18n(?:-aria)?="([^"]+)"/g)].map((m) => m[1]);
+const used = [...html.matchAll(/data-i18n(?:-aria|-title)?="([^"]+)"/g)].map((m) => m[1]);
 check('every key the markup asks for exists', used.every((key) => enKeys.includes(key)),
   used.filter((key) => !enKeys.includes(key)).join(', '));
 

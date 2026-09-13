@@ -18,11 +18,15 @@ ENDPOINT = "https://date.nager.at/api/v3/NextPublicHolidaysWorldwide"
 
 
 def fetch(window, country_codes: set[str]) -> list[dict]:
-    """Return holidays for tracked countries that fall inside the window."""
-    try:
-        rows = get_json(ENDPOINT)
-    except RuntimeError:
-        return []
+    """Return holidays for tracked countries that fall inside the window.
+
+    Network failures are left to propagate. fetch.py's collect() already wraps
+    every source in the one try/except that matters, and records the error so
+    the Sources panel can show a red dot with the reason. Catching here instead
+    returned an empty list that is indistinguishable from a quiet week: the run
+    reported ok, the panel drew a green dot, and an outage read as "0 events".
+    """
+    rows = get_json(ENDPOINT)
 
     if not isinstance(rows, list):
         return []
