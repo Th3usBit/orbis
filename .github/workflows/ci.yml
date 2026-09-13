@@ -17,6 +17,9 @@ jobs:
   build:
     name: Fresh clone on ${{ matrix.os }}
     runs-on: ${{ matrix.os }}
+    # Jobs finish in well under a minute; a hung urlopen would otherwise sit
+    # on the runner until the six-hour default.
+    timeout-minutes: 10
     strategy:
       fail-fast: false
       matrix:
@@ -33,8 +36,13 @@ jobs:
       - name: Build the globe geometry
         run: python scripts/build_geometry.py
 
+      # --allow-partial here, but never in pages.yml. CI asks "does a fresh
+      # clone build and run"; whether TradingView is up this afternoon is not
+      # its question. Without it a contributor's CSS-only PR goes red because
+      # a third party had an outage, and a real break becomes indistinguishable
+      # from a bad afternoon. Publishing is where the strict guard belongs.
       - name: Collect the calendar
-        run: python scripts/fetch.py
+        run: python scripts/fetch.py --allow-partial
 
       # lts/* rather than a pinned major: Node 20 went end-of-life in April
       # 2026 and is being removed from the runners, and the tests use nothing
@@ -62,6 +70,7 @@ jobs:
   oldest-python:
     name: Python 3.9, the version the README promises
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@v4
 
@@ -75,7 +84,7 @@ jobs:
       # collector touches no platform API, so the OS matrix above covers that
       # axis and running both here would triple the bill for nothing.
       - name: Collect the calendar
-        run: python scripts/fetch.py
+        run: python scripts/fetch.py --allow-partial
 
       - name: Build the globe geometry
         run: python scripts/build_geometry.py

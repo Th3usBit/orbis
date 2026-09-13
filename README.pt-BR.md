@@ -150,8 +150,9 @@ python scripts/fetch.py --days-back 14 --days-ahead 45
 O orbis foi feito para ser forkado e auto-hospedado, sem nada para configurar e sem ninguém para pedir permissão:
 
 1. Faça o fork do repositório.
-2. **Settings → Pages → Source: GitHub Actions.**
-3. Faça qualquer push, ou rode o workflow **Deploy to Pages** na mão.
+2. Faça qualquer push, ou rode o workflow **Deploy to Pages** na mão.
+
+A primeira execução liga o Pages sozinha (o `configure-pages` usa `enablement: true`), então realmente não há nada para configurar antes. Se a sua organização bloquear isso, ligue à mão em **Settings → Pages → Source: GitHub Actions** e rode o workflow de novo.
 
 O seu fork gera a própria geometria, coleta o próprio calendário e publica na sua URL `github.io`. Nenhum segredo para adicionar, nenhuma chave de API, nenhuma conta em provedor de dados e nenhum bot commitando dados nas suas branches. A reconstrução é agendada a cada três horas, o que na prática entrega algumas execuções por dia: o GitHub descarta os disparos agendados que não aceita, em vez de enfileirá-los, então o cron pede mais do que espera receber. Cada build é uma reconstrução completa, então as que rodam cobrem as que foram descartadas. Se preferir que não rode, apague o bloco `schedule:` em `.github/workflows/pages.yml`.
 

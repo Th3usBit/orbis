@@ -4,8 +4,11 @@
 # generated here, at deploy time, and uploaded as the Pages artefact. Nothing
 # is ever committed back, so a clone of this repo stays free of snapshots.
 #
-# Forks: this runs only after you enable Pages (Settings -> Pages -> Source:
-# GitHub Actions). Until then it is skipped, not failed.
+# Forks: `configure-pages` runs with `enablement: true`, so the first push to
+# a fork turns Pages on by itself. Without it the action hard-fails with
+# "Get Pages site failed" -- which is exactly how this repository's own first
+# two deploys died -- and every fork would open with a red X and a failure
+# email before its owner had done anything wrong.
 #
 # This workflow is the only thing that refreshes the data. The site has no
 # backend: calendar.json is baked into the artefact, so the published calendar
@@ -50,6 +53,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -81,6 +85,10 @@ jobs:
           grep -o 'v=[a-f0-9]\{8\}' index.html | head -3
 
       - uses: actions/configure-pages@v5
+        with:
+          # Provision Pages on the first run instead of failing. See the note
+          # about forks at the top of this file.
+          enablement: true
 
       # The repository root is the site: index.html, css/, js/, assets/, data/.
       - uses: actions/upload-pages-artifact@v3
