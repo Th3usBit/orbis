@@ -202,6 +202,52 @@ console.log('\n=== UX: o usuario consegue concluir tarefas ===');
   await page.close();
 }
 
+/* ================================================ 4. FUNDAMENTOS ======= */
+console.log('\n=== UI: os fundamentos sobrevivem a densidade ===');
+{
+  /* The rail was compacted to fit five cards on a 900px screen. Density is
+     cheap to add and expensive to notice going wrong, so the thresholds that
+     make it liveable are asserted rather than eyeballed. */
+  const { page } = await open();
+  const F = await page.evaluate(() => {
+    const r = (el) => el.getBoundingClientRect();
+    const alvos = [...document.querySelectorAll('.rail-left button')].map((b) => Math.min(r(b).width, r(b).height));
+    const linha = r(document.querySelector('.filter-row')).height;
+    const texto = parseFloat(getComputedStyle(document.querySelector('.filter-label')).fontSize);
+    return {
+      menorAlvo: Math.round(Math.min(...alvos)),
+      gapEntreCards: parseFloat(getComputedStyle(document.querySelector('.rail-left')).gap),
+      gapEntreLinhas: parseFloat(getComputedStyle(document.querySelector('.filter-rows')).gap || '0'),
+      ritmo: +(linha / texto).toFixed(2),
+      tituloPx: getComputedStyle(document.querySelector('.card-title')).fontSize,
+      corpoPx: getComputedStyle(document.querySelector('.filter-label')).fontSize,
+    };
+  });
+
+  // WCAG 2.5.8 puts the floor for any pointer target at 24x24 CSS pixels.
+  check('todo alvo clicavel tem ao menos 24px', F.menorAlvo >= 24, `menor = ${F.menorAlvo}px`);
+
+  // Gestalt proximity: the space between groups must beat the space within
+  // them, or the cards stop reading as separate things.
+  check('cards se separam mais entre si do que suas linhas internas',
+    F.gapEntreCards > F.gapEntreLinhas, `${F.gapEntreCards} vs ${F.gapEntreLinhas}`);
+
+  check('a linha respira ao menos 1.6x a altura do texto', F.ritmo >= 1.6, `razao ${F.ritmo}`);
+  check('titulo e corpo mantem tamanhos distintos', F.tituloPx !== F.corpoPx);
+
+  /* The point of the whole exercise: every card on screen at 1440x900, with
+     nothing dropped to get there. */
+  const { page: wide } = await open(1440, 900);
+  const fits = await wide.evaluate(() => {
+    const rail = document.querySelector('.rail-left');
+    return { transborda: rail.scrollHeight - rail.clientHeight, cards: rail.querySelectorAll('.card').length };
+  });
+  check('os cinco cards cabem em 1440x900 sem rolagem',
+    fits.transborda <= 0 && fits.cards === 5, `transborda ${fits.transborda}px, ${fits.cards} cards`);
+  await wide.close();
+  await page.close();
+}
+
 /* ==================================================== 4. RESPONSIVO ===== */
 console.log('\n=== UI/UX: responsividade ===');
 for (const [nome, w, h] of [['desktop', 1920, 1080], ['laptop', 1440, 900], ['tablet', 1024, 768], ['celular', 390, 844]]) {
