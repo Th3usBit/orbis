@@ -442,7 +442,19 @@ body::after {
   background: none;
   backdrop-filter: none;
   padding: 9px 14px;
-  flex: none;
+  /* Each group takes an equal share of whatever the column has spare, so the
+     slack ends up inside the cards -- on both sides of every divider -- rather
+     than pooled above the rules by a justify-content. Laid above, a rule sat
+     56px from the group it closes and 10px from the title below, close enough
+     to read as that title's underline instead of a boundary. */
+  flex: 1 1 auto;
+  /* Growing alone is not enough: the extra height lands below the content and
+     the divider ends up hugging the next title. Centring the content inside
+     the grown card splits it evenly, so every rule sits the same distance from
+     the group above it and the group below. */
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
   position: relative;
 }
 .card + .card { border-top: 1px solid var(--line); }
@@ -489,10 +501,16 @@ body::after {
   overflow: visible;
   padding-bottom: 0;
 }
+/* The categories group is the tallest, so it takes the least share of the
+   slack -- growing it further would only pad a group that already fills its
+   space, at the cost of the ones that do not. */
+.card-scroll { flex-grow: 0; }
 
-/* Sources sits at the foot of the panel when there is room to spare, so the
-   slack reads as the panel breathing rather than as a gap in a group. */
-.card-meta { margin-top: auto; }
+/* Spare room is shared between every group rather than pooled above the last
+   one. Pinning Sources to the foot put 188px in a single place on a tall
+   screen, which reads as a hole; spread evenly it reads as the panel
+   breathing. space-between does that and costs nothing when the column is
+   exactly full. */
 /* The padding moves onto the chip container so it scrolls with the content
    instead of reserving a strip at the bottom that a half-row peeks into. */
 .card-scroll .chips { padding-bottom: 13px; }
