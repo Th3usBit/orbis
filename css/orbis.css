@@ -407,8 +407,18 @@ body::after {
    the timeline rather than ending flush against it. */
 .rail-left {
   grid-area: left;
+  /* Ends where its content ends. As a grid cell it stretched to fill the row,
+     which nobody noticed while the cards were separate boxes -- but a single
+     panel makes the leftover visible as an empty pane hanging below the last
+     group. align-self keeps it honest; max-height keeps it scrollable when the
+     content is taller than the row. */
+  align-self: start;
+  max-height: 100%;
   overflow-y: auto;
-  scrollbar-gutter: stable;
+  /* No stable gutter here: it reserves 11px on the right whether or not a
+     scrollbar exists, and the dividers stopped short of the panel edge --
+     a ragged right margin down a column meant to read as one surface. The
+     rail ends at its content now, so the bar appears only when it scrolls. */
   /* The panel the cards used to draw individually, drawn once here. */
   border: 1px solid var(--line);
   border-radius: var(--radius);
