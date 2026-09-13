@@ -40,6 +40,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             return None
         return super().send_head()
 
+    def list_directory(self, path):
+        # A directory with no index is a 404, not an index of the folder.
+        # SimpleHTTPRequestHandler's default is to generate a listing, which
+        # enumerates whatever the working copy happens to hold -- notes, an
+        # export, a scratch file someone dropped next to index.html -- and
+        # serves every one of them in full. The site itself never asks for a
+        # directory, so nothing legitimate is lost.
+        self.send_error(404, "File not found")
+        return None
+
     def log_message(self, fmt, *args):
         status = args[1] if len(args) > 1 else ""
         if status.startswith(("4", "5")):

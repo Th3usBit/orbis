@@ -21,3 +21,27 @@ Thumbs.db
 .idea/
 .vscode/
 *.log
+
+# --- Secrets -------------------------------------------------------------
+# orbis needs none of these: it has no API keys, no accounts and no config
+# file. They are listed because a public fork is one `git add .` away from
+# publishing a file somebody created out of habit, and that mistake cannot be
+# taken back once it is pushed.
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.p12
+*.pfx
+id_rsa*
+id_ed25519*
+*.credentials
+credentials.json
+secrets.json
+*.secret
+.netrc
+.npmrc
+.pypirc
+.aws/
+.ssh/
