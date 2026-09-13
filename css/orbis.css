@@ -16,10 +16,12 @@
   --ink:           #dbe3f0;
   --ink-strong:    #f4f7fc;
   --ink-dim:       #7f8ea6;
-  /* Raised from #56637a: at 9.5-10px that was 3.3:1 on --bg, under the 4.5:1
-     WCAG AA floor for small text. This clears it at 5:1 and keeps the step
-     down from --ink-dim readable as hierarchy. */
-  --ink-faint:     #727f97;
+  /* Measured against rendered pixels rather than declared colours: the panels
+     are translucent over a lit globe, so #727f97 held 5:1 on the page
+     background but only 4.5:1 on the glass, and less where the globe is
+     bright. #7a88a0 clears the AA floor in both places and still reads as a
+     step down from --ink-dim. */
+  --ink-faint:     #7a88a0;
 
   --accent:        #4da3ff;
   --accent-soft:   rgba(77, 163, 255, 0.14);
@@ -159,6 +161,32 @@ body::after {
 }
 .shell > * { pointer-events: auto; }
 
+/* --- Skip link ------------------------------------------------------------ */
+
+/* Off-screen until focused, which is the whole point: it is there for the
+   keyboard and invisible to everyone else. */
+.skip-link {
+  position: fixed;
+  top: 14px;
+  left: 14px;
+  z-index: 60;
+  padding: 9px 14px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-sm);
+  background: var(--panel-solid);
+  color: var(--ink-strong);
+  font-size: 12px;
+  font-weight: 600;
+  text-decoration: none;
+  transform: translateY(-160%);
+  transition: transform 160ms ease;
+}
+/* :focus as well as :focus-visible -- a skip link is only ever reached by
+   keyboard, and some engines withhold focus-visible on a programmatic focus,
+   which would leave it off-screen exactly when it is needed. */
+.skip-link:focus,
+.skip-link:focus-visible { transform: none; }
+
 /* --------------------------------------------------------------------------
    Top bar
    -------------------------------------------------------------------------- */
@@ -199,7 +227,10 @@ body::after {
 .brand-mark::after  { border-radius: 50%; transform: scaleX(0.42); }
 
 .brand-text { display: flex; flex-direction: column; line-height: 1.15; }
-.brand-text strong {
+/* An h1 by markup, the same wordmark by sight: the heading exists for the
+   document outline, not to add a heading-sized block to the topbar. */
+.brand-name {
+  margin: 0;
   font-size: 17px;
   font-weight: 700;
   letter-spacing: 0.18em;

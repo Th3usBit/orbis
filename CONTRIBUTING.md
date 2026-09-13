@@ -53,11 +53,27 @@ python scripts/fetch.py             # regenerate data/calendar.json
 node tests/store.test.mjs .         # smoke-test the state layer (needs Node 18+)
 node tests/i18n.test.mjs .          # check the EN/PT/ES translation tables
 node tests/merge.test.mjs .         # check the reconciled dataset
+node tests/ui.test.mjs .            # UI/UX in a real browser (needs Playwright)
 node tests/offline.test.mjs .       # check nothing loads from a CDN
 ```
 
 CI runs exactly this on Linux, Windows and macOS against a fresh clone. If it
 passes locally on a clean checkout, it will pass there.
+
+**The browser suite.** `tests/ui.test.mjs` drives the real page with
+Playwright: contrast measured on rendered pixels rather than declared
+colours, keyboard reach, the empty state, and the layout at four widths.
+
+It is the only test with a dependency, so it is opt-in: it exits 0 with a
+SKIP notice when Playwright is absent, and CI does not run it. The site
+itself still needs no package manager. To run it:
+
+```bash
+npx playwright@1 install chromium
+node tests/ui.test.mjs .
+```
+
+It starts the dev server itself if one is not already listening.
 
 ## Adding or improving a language
 

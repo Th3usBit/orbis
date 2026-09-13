@@ -38,11 +38,17 @@
 
 <div id="shell" class="shell" hidden>
 
+  <!-- Thirty-four tab stops separated the keyboard from the event list. This is
+       the way past the filters for anyone who did not come to change them. -->
+  <a class="skip-link" href="#event-list" data-i18n="skip_to_events">Skip to the event list</a>
+
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
       <span class="brand-text">
-        <strong>orbis</strong>
+        <!-- The page had no h1 at all: a screen reader landed on a document
+             whose outline started at h2. -->
+        <h1 class="brand-name">orbis</h1>
         <span class="brand-tag" data-i18n="tagline">the world economic calendar</span>
       </span>
     </div>
@@ -161,7 +167,9 @@
     <header class="panel-head">
       <div>
         <h2 class="panel-title" id="panel-title">—</h2>
-        <p class="panel-sub" id="panel-sub"></p>
+        <!-- Filtering changed the count silently for anyone not watching the
+             screen. polite waits for a pause rather than interrupting. -->
+        <p class="panel-sub" id="panel-sub" aria-live="polite" aria-atomic="true"></p>
       </div>
       <button type="button" class="panel-reset" id="panel-reset" hidden data-i18n="clear">clear</button>
     </header>
