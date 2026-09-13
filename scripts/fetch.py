@@ -86,10 +86,20 @@ class Window:
 
 
 def parse(iso: str) -> datetime | None:
+    """A feed timestamp as an aware UTC datetime, or None if it is not one.
+
+    Always aware, never naive. A value carrying no zone -- a bare '2026-09-14',
+    which fromisoformat accepts -- comes back naive, and Python refuses to
+    compare naive against aware: `window.contains()` would raise TypeError
+    rather than return False, and the run would die on a single malformed row
+    instead of dropping it. The three collectors all emit a full ISO stamp
+    today, so this is a guard on input we do not control, not a live bug.
+    """
     try:
-        return datetime.fromisoformat(iso.replace("Z", "+00:00"))
-    except (ValueError, AttributeError):
+        moment = datetime.fromisoformat(iso.replace("Z", "+00:00"))
+    except (ValueError, AttributeError, TypeError):
         return None
+    return moment if moment.tzinfo else moment.replace(tzinfo=timezone.utc)
 
 
 def load_countries() -> tuple[dict, dict]:
