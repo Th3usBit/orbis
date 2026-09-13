@@ -7,7 +7,7 @@ name: Cron probe (temporary)
 
 on:
   schedule:
-    - cron: '7 3 * * *'
+    - cron: '32 3 * * *'
   workflow_dispatch:
 
 permissions:
