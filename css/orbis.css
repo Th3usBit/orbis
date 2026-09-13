@@ -158,8 +158,8 @@ body::after {
   /* 14px cost 56px of vertical room -- two paddings and two gaps -- which was
      the last thing standing between the rail and a screen it fits. The globe
      is the subject here; the frame around it does not need to be generous. */
-  gap: 11px;
-  padding: 11px;
+  gap: 9px;
+  padding: 9px;
   pointer-events: none;
 }
 .shell > * { pointer-events: auto; }
@@ -441,14 +441,14 @@ body::after {
   border-radius: 0;
   background: none;
   backdrop-filter: none;
-  padding: 12px 14px;
+  padding: 9px 14px;
   flex: none;
   position: relative;
 }
 .card + .card { border-top: 1px solid var(--line); }
 
 .card-title {
-  margin: 0 0 8px;
+  margin: 0 0 5px;
   font-size: 9.5px;
   font-weight: 600;
   letter-spacing: 0.17em;
@@ -477,19 +477,21 @@ body::after {
    takes whatever the column has left, which on a 1080p screen is enough for
    all fourteen chips with no scrolling at all. Where it is not enough -- a
    short laptop -- it scrolls rather than pushing Sources off the panel. */
-/* Sized by its chips, capped by whatever the column has left. Letting it grow
-   to fill the rail put 123px of nothing between the last chip and the divider
-   below -- a hole inside a group reads worse than space between groups. */
+/* Never scrolls on its own.
+ *
+ * A scrollbar inside a group is the worst of both worlds: it slices a chip in
+ * half at the boundary and puts a second scrolling surface inside a panel that
+ * already scrolls. The group shows every chip it has; when the column cannot
+ * hold everything, the column scrolls -- one bar, at the edge of the panel,
+ * where a reader expects it. */
 .card-scroll {
-  flex: 0 1 auto;
-  min-height: 0;
-  padding-bottom: 12px;
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  flex: none;
+  overflow: visible;
+  padding-bottom: 0;
 }
 
-/* The slack belongs here instead: Sources sits at the foot of the panel, and
-   the gap above it is the panel breathing rather than a group with a hole. */
+/* Sources sits at the foot of the panel when there is room to spare, so the
+   slack reads as the panel breathing rather than as a gap in a group. */
 .card-meta { margin-top: auto; }
 /* The padding moves onto the chip container so it scrolls with the content
    instead of reserving a strip at the bottom that a half-row peeks into. */
@@ -497,7 +499,7 @@ body::after {
 
 /* --- Next high-impact ----------------------------------------------------- */
 
-.next-body { display: flex; flex-direction: column; gap: 8px; }
+.next-body { display: flex; flex-direction: column; gap: 6px; }
 
 .next-when { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
 
@@ -505,7 +507,7 @@ body::after {
   font-family: var(--mono);
   /* Still the largest thing in the rail, and the reason this card exists --
      trimmed only as far as the hierarchy survives. */
-  font-size: 25px;
+  font-size: 23px;
   font-weight: 700;
   font-variant-numeric: tabular-nums;
   letter-spacing: -0.01em;
@@ -563,7 +565,7 @@ body::after {
   align-items: center;
   gap: 9px;
   width: 100%;
-  padding: 4px 6px;
+  padding: 3px 6px;
   border-radius: var(--radius-sm);
   text-align: left;
   transition: background 140ms ease, opacity 140ms ease;
@@ -614,7 +616,7 @@ body::after {
 
 /* --- Sources / meta ------------------------------------------------------- */
 
-.source-list { list-style: none; margin: 0 0 7px; padding: 0; display: flex; flex-direction: column; gap: 3px; }
+.source-list { list-style: none; margin: 0 0 3px; padding: 0; display: flex; flex-direction: column; gap: 1px; }
 .source-list li { display: flex; align-items: center; gap: 7px; font-size: 11px; color: var(--ink-dim); }
 .source-list a { color: var(--ink-dim); text-decoration: none; border-bottom: 1px solid transparent; }
 .source-list a:hover { color: var(--ink); border-bottom-color: var(--line-strong); }
