@@ -30,6 +30,16 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Cache-Control", "no-store, must-revalidate")
         super().end_headers()
 
+    def send_head(self):
+        # The site is only the files the page asks for. Everything beginning
+        # with a dot -- .git above all, with its full history and its remote --
+        # is repository plumbing that no viewer needs and that a misconfigured
+        # run must not hand out. SimpleHTTPRequestHandler serves it happily.
+        if any(part.startswith(".") for part in self.path.split("?")[0].split("/")):
+            self.send_error(404, "File not found")
+            return None
+        return super().send_head()
+
     def log_message(self, fmt, *args):
         status = args[1] if len(args) > 1 else ""
         if status.startswith(("4", "5")):
