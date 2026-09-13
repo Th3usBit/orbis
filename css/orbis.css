@@ -467,7 +467,6 @@ body::after {
 
 /* --- Next high-impact ----------------------------------------------------- */
 
-.card-next { border-color: rgba(255, 77, 109, 0.22); }
 .next-body { display: flex; flex-direction: column; gap: 11px; }
 
 .next-when { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
@@ -500,10 +499,10 @@ body::after {
   text-align: left;
   border: 1px solid var(--line);
   border-radius: var(--radius-sm);
-  background: rgba(255, 77, 109, 0.05);
+  background: rgba(255, 255, 255, 0.03);
   transition: border-color 160ms ease, background 160ms ease;
 }
-.next-event:hover { border-color: rgba(255, 77, 109, 0.4); background: rgba(255, 77, 109, 0.1); }
+.next-event:hover { border-color: var(--line-strong); background: rgba(255, 255, 255, 0.06); }
 
 .next-flag { font-size: 19px; line-height: 1; flex: none; }
 .next-labels { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
