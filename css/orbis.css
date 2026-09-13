@@ -407,13 +407,11 @@ body::after {
    the timeline rather than ending flush against it. */
 .rail-left {
   grid-area: left;
-  /* Ends where its content ends. As a grid cell it stretched to fill the row,
-     which nobody noticed while the cards were separate boxes -- but a single
-     panel makes the leftover visible as an empty pane hanging below the last
-     group. align-self keeps it honest; max-height keeps it scrollable when the
-     content is taller than the row. */
-  align-self: start;
-  max-height: 100%;
+  /* Full height, matching the panel on the other side of the globe -- two
+     columns of the same length frame the scene instead of one stopping short.
+     The room that buys is spent on the categories, which no longer scroll. */
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
   /* No stable gutter here: it reserves 11px on the right whether or not a
      scrollbar exists, and the dividers stopped short of the panel edge --
@@ -475,20 +473,24 @@ body::after {
  * cap that lands cleanly on the desktop rail slices a row in half in the
  * mobile sheet. Expressing the cap in rows -- chip height plus the gap above
  * it -- lands on a boundary at any width. */
+/* The one group that grows. Every other card is sized by its content; this
+   takes whatever the column has left, which on a 1080p screen is enough for
+   all fourteen chips with no scrolling at all. Where it is not enough -- a
+   short laptop -- it scrolls rather than pushing Sources off the panel. */
+/* Sized by its chips, capped by whatever the column has left. Letting it grow
+   to fill the rail put 123px of nothing between the last chip and the divider
+   below -- a hole inside a group reads worse than space between groups. */
 .card-scroll {
-  /* Measured on the live panel, identical at every width: the chips start
-     35px down (12 padding + 14 title + 8 margin), each is 24px, and rows are
-     5px apart. Three rows therefore end exactly here, and the box ends with
-     them instead of leaving a strip for the fourth to peek into. */
-  --chip-top: 35px;
-  --chip-row: 24px;
-  --chip-gap: 5px;
-  --rows: 3;
-  max-height: calc(var(--chip-top) + var(--rows) * var(--chip-row) + (var(--rows) - 1) * var(--chip-gap));
-  padding-bottom: 0;
+  flex: 0 1 auto;
+  min-height: 0;
+  padding-bottom: 12px;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+
+/* The slack belongs here instead: Sources sits at the foot of the panel, and
+   the gap above it is the panel breathing rather than a group with a hole. */
+.card-meta { margin-top: auto; }
 /* The padding moves onto the chip container so it scrolls with the content
    instead of reserving a strip at the bottom that a half-row peeks into. */
 .card-scroll .chips { padding-bottom: 13px; }

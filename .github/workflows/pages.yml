@@ -45,6 +45,20 @@ jobs:
       - name: Collect the calendar
         run: python scripts/fetch.py
 
+      # GitHub Pages serves CSS and JS with max-age=600, so a viewer who
+      # visited in the last ten minutes gets the old stylesheet against the new
+      # markup -- a layout that looks broken and is not. Stamping the commit
+      # onto the asset links makes each deploy a new URL, which no cache can
+      # confuse with the last one. Nothing is renamed on disk: the query string
+      # is enough, and `start.sh` keeps serving the plain paths offline.
+      - name: Version the asset links
+        run: |
+          V="${GITHUB_SHA::8}"
+          sed -i "s|href=\"css/orbis.css\"|href=\"css/orbis.css?v=$V\"|" index.html
+          sed -i "s|href=\"vendor/fonts.css\"|href=\"vendor/fonts.css?v=$V\"|" index.html
+          sed -i "s|src=\"js/main.js\"|src=\"js/main.js?v=$V\"|" index.html
+          grep -o 'v=[a-f0-9]\{8\}' index.html | head -3
+
       - uses: actions/configure-pages@v5
 
       # The repository root is the site: index.html, css/, js/, assets/, data/.
