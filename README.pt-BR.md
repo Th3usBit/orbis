@@ -81,7 +81,7 @@ Nenhum dos provedores gratuitos de calendário envia cabeçalhos CORS, então o 
                                                  └────────────────────────┘
 ```
 
-Como a saída é um único JSON estático, o site inteiro roda no GitHub Pages de graça, para sempre, sem servidor para manter no ar e sem chave para vazar. A demo publicada é reconstruída do zero a cada deploy e a cada seis horas — o artefato vai direto para o Pages e nunca é commitado, então o repositório permanece limpo.
+Como a saída é um único JSON estático, o site inteiro roda no GitHub Pages de graça, para sempre, sem servidor para manter no ar e sem chave para vazar. A demo publicada é reconstruída do zero a cada deploy e, na medida do possível, algumas vezes por dia — o artefato vai direto para o Pages e nunca é commitado, então o repositório permanece limpo.
 
 **Reconciliação.** As duas fontes de calendário são mescladas, não concatenadas. Eventos de provedores diferentes são tratados como a mesma divulgação quando compartilham o país, caem dentro de 45 minutos um do outro e têm títulos suficientemente parecidos. As coincidências recebem a marca `confirmed_by`, e a interface sinaliza com `✦` — uma divulgação em que duas fontes independentes concordam vale mais do que uma que aparece num feed só. Eventos do feed secundário que não casam com nada são mantidos como acréscimos legítimos.
 
@@ -104,7 +104,7 @@ Todas gratuitas, todas sem chave, todas acessíveis sem conta.
 - **MQL5** — sem API pública. O calendário deles é um endpoint interno, sem termos de uso para terceiros.
 - **FRED** — excelente e autoritativa, mas exige chave de API, o que quebra a promessa de "clonar e rodar". É uma boa adição opcional para as datas de divulgação dos EUA (veja o roadmap).
 
-> **Sobre termos de uso.** Esses são endpoints públicos, sem chave, que alimentam os próprios widgets públicos dos provedores, e o orbis os consulta uma vez por hora — mais ou menos o que uma pessoa lendo o site geraria. Os dados são informação factual de agendamento (datas, instituições, números publicados), que não é protegida por direito autoral em si, e cada evento tem link de volta para a fonte. Se você rodar um fork em frequência maior, seja um bom cidadão e use cache com folga. Se você é um provedor e quer uma mudança, abra uma issue.
+> **Sobre termos de uso.** Esses são endpoints públicos, sem chave, que alimentam os próprios widgets públicos dos provedores, e a demo publicada os consulta algumas vezes por dia — bem menos do que uma pessoa lendo o site geraria. Os dados são informação factual de agendamento (datas, instituições, números publicados), que não é protegida por direito autoral em si, e cada evento tem link de volta para a fonte. Se você rodar um fork em frequência maior, seja um bom cidadão e use cache com folga. Se você é um provedor e quer uma mudança, abra uma issue.
 
 ## Estrutura do projeto
 
@@ -153,7 +153,7 @@ O orbis foi feito para ser forkado e auto-hospedado, sem nada para configurar e 
 2. **Settings → Pages → Source: GitHub Actions.**
 3. Faça qualquer push, ou rode o workflow **Deploy to Pages** na mão.
 
-O seu fork gera a própria geometria, coleta o próprio calendário e publica na sua URL `github.io`. Nenhum segredo para adicionar, nenhuma chave de API, nenhuma conta em provedor de dados e nenhum bot commitando dados nas suas branches. A reconstrução agendada roda a cada seis horas; se preferir que não rode, apague o bloco `schedule:` em `.github/workflows/pages.yml`.
+O seu fork gera a própria geometria, coleta o próprio calendário e publica na sua URL `github.io`. Nenhum segredo para adicionar, nenhuma chave de API, nenhuma conta em provedor de dados e nenhum bot commitando dados nas suas branches. A reconstrução é agendada a cada três horas, o que na prática entrega algumas execuções por dia: o GitHub descarta os disparos agendados que não aceita, em vez de enfileirá-los, então o cron pede mais do que espera receber. Cada build é uma reconstrução completa, então as que rodam cobrem as que foram descartadas. Se preferir que não rode, apague o bloco `schedule:` em `.github/workflows/pages.yml`.
 
 Essa reconstrução é a única coisa que mantém o calendário publicado atual — o site não tem backend, então os dados têm exatamente a idade do último deploy. **O GitHub desativa um workflow agendado em repositório público após 60 dias sem atividade**, e como o coletor só enxerga 21 dias à frente, um fork deixado de lado por dois meses silencia e, cerca de três semanas depois, passa a servir um calendário vazio sem que nada pareça quebrado. Se você não faz push no seu fork com frequência, confira a aba Actions de vez em quando, ou reative com `gh workflow enable "Deploy to Pages"`.
 

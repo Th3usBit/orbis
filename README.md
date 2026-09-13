@@ -81,7 +81,7 @@ None of the free calendar providers send CORS headers, so a browser cannot call 
                                              └────────────────────────┘
 ```
 
-Because the output is a single static JSON file, the whole site runs on GitHub Pages for free, forever, with no server to keep alive and no key to leak. The published demo is rebuilt from scratch on every deploy and every six hours — the artefact is uploaded straight to Pages and never committed, so the repository stays clean.
+Because the output is a single static JSON file, the whole site runs on GitHub Pages for free, forever, with no server to keep alive and no key to leak. The published demo is rebuilt from scratch on every deploy and, best-effort, a few times a day — the artefact is uploaded straight to Pages and never committed, so the repository stays clean.
 
 **Reconciliation.** The two calendar feeds are merged rather than concatenated. Events from different providers are treated as the same release when they share a country, land within 45 minutes of each other and their titles are similar enough. Matches are tagged `confirmed_by`, and the UI marks them with a `✦` — a release two independent sources agree on is worth more than one that only appears in a single feed. Unmatched events from the secondary feed are kept as genuine additions.
 
@@ -104,7 +104,7 @@ All free, all key-free, all reachable without an account.
 - **MQL5** — no public API. Its calendar is an internal endpoint with no usage terms for third parties.
 - **FRED** — excellent and authoritative, but requires an API key, which breaks the "clone and run" promise. It is a good optional addition for US release dates (see the roadmap).
 
-> **On terms of use.** These are public, key-free endpoints that back the providers' own public widgets, and orbis polls them once an hour — roughly what one person reading the site would generate. The data is factual scheduling information (dates, institutions, published figures), which is not itself copyrightable, and every event links back to its source. If you run a fork at higher frequency, be a good citizen and cache aggressively. If you are a provider and want a change, open an issue.
+> **On terms of use.** These are public, key-free endpoints that back the providers' own public widgets, and the published demo polls them a few times a day — far less than one person reading the site would generate. The data is factual scheduling information (dates, institutions, published figures), which is not itself copyrightable, and every event links back to its source. If you run a fork at higher frequency, be a good citizen and cache aggressively. If you are a provider and want a change, open an issue.
 
 ## Project structure
 
@@ -153,7 +153,7 @@ orbis is designed to be forked and self-hosted, with nothing to configure and no
 2. **Settings → Pages → Source: GitHub Actions.**
 3. Push anything, or run the **Deploy to Pages** workflow by hand.
 
-Your fork builds its own geometry, collects its own calendar and publishes to your own `github.io` URL. No secrets to add, no API keys, no account with any data provider, and no bot committing data into your branches. The scheduled rebuild runs every six hours; if you would rather it did not run at all, delete the `schedule:` block in `.github/workflows/pages.yml`.
+Your fork builds its own geometry, collects its own calendar and publishes to your own `github.io` URL. No secrets to add, no API keys, no account with any data provider, and no bot committing data into your branches. The rebuild is scheduled every three hours, which in practice lands a few times a day: GitHub drops scheduled firings it will not take rather than queueing them, so the cron asks for more than it expects to get. Every build is a full rebuild, so the ones that land carry the ones that did not. If you would rather it did not run at all, delete the `schedule:` block in `.github/workflows/pages.yml`.
 
 That rebuild is the only thing that keeps the published calendar current — the site has no backend, so the data is exactly as old as the last deploy. **GitHub disables a scheduled workflow in a public repository after 60 days without activity**, and since the collector only looks 21 days ahead, a fork left alone for two months goes quiet and then, about three weeks later, starts serving an empty calendar without anything appearing to be broken. If you are not pushing to your fork regularly, check the Actions tab now and then, or re-enable it with `gh workflow enable "Deploy to Pages"`.
 

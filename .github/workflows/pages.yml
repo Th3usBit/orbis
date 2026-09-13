@@ -16,10 +16,17 @@
 #     looks 21 days ahead, the calendar empties out about three weeks later
 #     while the site keeps serving happily. Re-enable it from the Actions tab,
 #     or with `gh workflow enable "Deploy to Pages"`.
-#   * A scheduled run is not a promise. GitHub delays the schedule event under
-#     load and may drop queued runs outright, which is why the cron sits at
-#     minute 17 rather than on the hour. Missing one is harmless -- the window
-#     is three weeks deep -- but missing every one is the case above.
+#   * A scheduled run is not a promise, and the shortfall is larger than the
+#     docs suggest. Measured on this repository: an earlier workflow asking for
+#     hourly runs got four in a day, and this one asking for four got two. The
+#     runs that do arrive are not late-but-queued -- created_at equals
+#     run_started_at -- so GitHub is dropping the firings it will not take
+#     rather than backing them up. The cron below therefore asks for eight a
+#     day to land roughly four, sits at minute 17 to miss the top-of-hour rush,
+#     and the whole scheme is best-effort: what actually keeps the site honest
+#     is that every build is a full rebuild, so one that lands replaces
+#     everything a dropped one would have done. Missing one is harmless -- the
+#     window is three weeks deep -- but missing every one is the case above.
 
 name: Deploy to Pages
 
@@ -28,7 +35,7 @@ on:
     branches: [main]
   # Keep the published demo current: the artefact is rebuilt from scratch.
   schedule:
-    - cron: '17 */6 * * *'
+    - cron: '17 */3 * * *'
   workflow_dispatch:
 
 permissions:
