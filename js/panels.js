@@ -18,6 +18,11 @@ import { buildIcs, buildCsv, exportName } from './export.js';
 
 const $ = (id) => document.getElementById(id);
 
+// Twelve hours: the schedule asks for a rebuild every three and GitHub drops
+// most of what it is asked for, so four missed windows is a pattern rather
+// than bad luck.
+const STALE_AFTER_MINUTES = 12 * 60;
+
 /* ------------------------------------------------------------------ utils */
 
 /**
@@ -541,8 +546,43 @@ export function renderSources() {
     const ago = minutes < 60
       ? `${minutes}${t('minutes_short')}`
       : `${Math.round(minutes / 60)}h`;
-    $('generated-line').textContent = `${t('generated')} · ${t('updated_ago', { n: ago })}`;
+    const line = $('generated-line');
+    line.textContent = `${t('generated')} · ${t('updated_ago', { n: ago })}`;
+    line.classList.toggle('is-stale', minutes > STALE_AFTER_MINUTES);
+    renderStaleNotice(minutes);
   }
+}
+
+/**
+ * Say so when the calendar has stopped being rebuilt.
+ *
+ * This is the project's most likely failure, and the quietest. The site has no
+ * backend: the data is baked into the published artefact, so if the deploy
+ * stops -- a scheduled workflow disabled after sixty days of inactivity, a
+ * provider gone, a fork whose owner moved on -- nothing breaks. The globe
+ * still turns, the panel still lists events, and the calendar simply ages
+ * until the twenty-one day window runs out and the screen empties with
+ * nothing appearing wrong.
+ *
+ * Twelve hours is the threshold because the schedule asks for a rebuild every
+ * three and GitHub drops most of them; four missed windows in a row is a
+ * pattern rather than bad luck. The notice states the age and nothing else --
+ * the data is not wrong, it is old, and a reader deciding whether to trust a
+ * figure needs to know which.
+ */
+function renderStaleNotice(minutes) {
+  const node = $('stale-notice');
+  if (!node) return;
+
+  if (minutes <= STALE_AFTER_MINUTES) {
+    node.hidden = true;
+    return;
+  }
+
+  const hours = Math.round(minutes / 60);
+  const age = hours < 48 ? `${hours}h` : `${Math.round(hours / 24)}${t('days_short')}`;
+  node.textContent = t('stale', { n: age });
+  node.hidden = false;
 }
 
 /* ---------------------------------------------------------------- tooltip */

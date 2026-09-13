@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="orbis">
+  <rect width="512" height="512" fill="#05070c"/>
+  <g fill="none" stroke="#4da3ff" stroke-width="20">
+    <circle cx="256" cy="256" r="180"/>
+    <ellipse cx="256" cy="256" rx="76" ry="180" opacity=".7" stroke-width="14"/>
+    <path d="M84 200h344M84 312h344" opacity=".7" stroke-width="14"/>
+  </g>
+  <circle cx="330" cy="170" r="17" fill="#ff4d6d"/>
+  <circle cx="196" cy="330" r="13" fill="#ffb347"/>
+</svg>

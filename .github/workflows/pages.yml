@@ -64,11 +64,48 @@ jobs:
         with:
           python-version: '3.12'
 
+      # The geometry is Natural Earth, fetched from jsDelivr, and it is the
+      # same bytes every time -- verified: two runs produce an identical
+      # SHA-256. Without this cache a jsDelivr outage takes the whole deploy
+      # down even when all three calendar feeds are answering, which would
+      # leave the site serving a calendar older than it needs to be for a
+      # reason that has nothing to do with the calendar.
+      #
+      # Keyed on the builder and its spacing constant, so changing either
+      # rebuilds rather than serving stale dots.
+      - name: Reuse the globe geometry when it has not changed
+        id: geometry
+        uses: actions/cache@v4
+        with:
+          path: assets
+          key: geometry-${{ hashFiles('scripts/build_geometry.py') }}
+
       - name: Build the globe geometry
+        if: steps.geometry.outputs.cache-hit != 'true'
         run: python scripts/build_geometry.py
 
       - name: Collect the calendar
         run: python scripts/fetch.py
+
+      # The preview image a shared link shows. It is a screenshot of the real
+      # page, so it cannot drift from what a visitor sees -- but it is also
+      # decoration: the step must never fail a deploy, and the script exits 0
+      # when Playwright is missing.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Render the social card
+        continue-on-error: true
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw"
+          cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+          cd "$GITHUB_WORKSPACE"
+          export PLAYWRIGHT_PATH="$RUNNER_TEMP/pw/node_modules/playwright/index.mjs"
+          node scripts/social_card.mjs .
 
       # GitHub Pages serves CSS and JS with max-age=600, so a viewer who
       # visited in the last ten minutes gets the old stylesheet against the new

@@ -31,6 +31,7 @@ O orbis põe os mesmos dados num globo giratório:
 - **Anéis pulsam** somente em divulgações que acontecem na próxima hora — nada anima por enfeite.
 - **Uma faixa de timeline** na base mostra a carga de cada dia da janela como um micro-gráfico empilhado, então uma semana pesada aparece antes de você clicar nela.
 - **Leve com você.** O que estiver no painel — um dia, um país, o que os seus filtros deixaram — sai em `.csv` para planilha ou `.ics` para o seu calendário. O arquivo é montado no seu navegador e salvo direto no seu disco; nada é enviado para lugar nenhum.
+- **Mande uma visão para alguém.** A barra de endereço acompanha o dia e o país que você está vendo, então `?d=2026-09-30&c=BR` sobrevive a um reload e viaja num link. A página também é instalável: tudo de que ela precisa já está na origem.
 
 Toda a interface fala Português, English e Español, incluindo nomes de indicadores e de países traduzidos. Na primeira visita ela adota o idioma do navegador e, depois disso, lembra a sua escolha.
 
@@ -174,6 +175,8 @@ Os dois feeds de calendário são **mesclados, não concatenados**. Duas linhas 
 
 As coincidências recebem a marca `confirmed_by` e um `✦` na interface — uma divulgação em que duas fontes independentes concordam vale mais do que uma que aparece num feed só. Linhas do feed secundário que não casam com nada são mantidas como acréscimos legítimos.
 
+**A marca é rara de propósito.** Cerca de 1% dos eventos a carrega, porque a conferência cobre nove moedas principais contra os oitenta países do feed primário: a maioria das divulgações não tem contra o que ser corroborada. `✦` quer dizer *duas fontes concordam*, não *esta é verificada e as outras não*.
+
 ### 4. Publicar
 
 O `fetch.py` escreve um arquivo e se recusa a escrever um ruim:
@@ -242,6 +245,7 @@ Três coisas que vale saber se você mantém um fork:
 node tests/store.test.mjs .       # camada de estado e todos os seletores
 node tests/format.test.mjs .      # formatação de número, segurança de URL, astronomia
 node tests/export.test.mjs .      # o .ics e o .csv que o painel entrega
+node tests/url.test.mjs .         # a visão carregada na barra de endereço
 node tests/i18n.test.mjs .        # paridade EN/PT/ES, contra títulos reais dos feeds
 node tests/merge.test.mjs .       # a forma do conjunto reconciliado
 node tests/offline.test.mjs .     # nada busca um CDN
@@ -287,13 +291,17 @@ orbis/
 │   ├── globe.js            cena three.js, shaders, voos de câmera
 │   ├── panels.js           renderização DOM das laterais e da timeline
 │   ├── export.js           geração de .ics e .csv
+│   ├── url.js              a visão carregada na barra de endereço
 │   └── i18n.js             textos EN/PT/ES + tradução de indicadores
 ├── scripts/
 │   ├── fetch.py            coleta → reconcilia → publica
 │   ├── build_geometry.py   TopoJSON → pontos de terra + fronteiras (uma vez)
 │   ├── serve.py            servidor estático de dev, sem cache
+│   ├── social_card.mjs     renderiza a prévia de link da própria página
 │   └── sources/            um módulo por provedor
-├── tests/                  sete suítes; seis precisam só do Node
+├── tests/                  oito suítes; sete precisam só do Node
+├── static/icon.svg         o ícone do app, versionado
+├── manifest.webmanifest    torna a página instalável
 ├── vendor/                 three.js e as fontes, versionados de propósito
 ├── data/countries.json     o único dado versionado: nomes, coordenadas, regiões
 └── .github/workflows/      CI e o deploy do Pages
@@ -306,6 +314,7 @@ orbis/
 | `data/calendar.json` | ~550 KB | `scripts/fetch.py`, a cada execução |
 | `assets/land-dots.json` | ~95 KB | `scripts/build_geometry.py`, uma vez |
 | `assets/borders.json` | ~104 KB | `scripts/build_geometry.py`, uma vez |
+| `assets/social.png` | ~190 KB | `scripts/social_card.mjs`, no deploy |
 
 ---
 
@@ -357,8 +366,11 @@ Adicionar um idioma são quatro edições: um bloco em `UI` e uma tabela de fras
 
 - [x] three.js embarcado no repo para a página funcionar 100% offline
 - [x] Exportar os eventos da tela — `.csv` para planilha, `.ics` para o calendário
+- [x] Uma visão compartilhável: `?d=2026-09-30&c=BR` sobrevive a um reload e viaja num link
+- [x] Um aviso quando o calendário para de ser reconstruído, em vez de envelhecer em silêncio
+- [x] Instalável como app, e uma prévia de link renderizada da própria página
 - [ ] Calendários de reunião de bancos centrais coletados direto das instituições — os feeds param em ~33 dias, os bancos publicam anos à frente
-- [ ] Um aviso de dados desatualizados quando o `generated_at` ficar velho demais
+- [ ] Mais idiomas — quatro edições cada, e o teste de paridade cobra o resto
 
 ---
 

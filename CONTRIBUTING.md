@@ -53,6 +53,7 @@ python scripts/fetch.py             # regenerate data/calendar.json
 node tests/store.test.mjs .         # smoke-test the state layer (needs Node 18+)
 node tests/format.test.mjs .        # formatting, URL safety and the solar maths
 node tests/export.test.mjs .        # the .ics and .csv the panel hands out
+node tests/url.test.mjs .           # the view carried in the address bar
 node tests/i18n.test.mjs .          # check the EN/PT/ES translation tables
 node tests/merge.test.mjs .         # check the reconciled dataset
 node tests/ui.test.mjs .            # UI/UX in a real browser (needs Playwright)

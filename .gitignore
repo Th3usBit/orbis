@@ -5,6 +5,8 @@
 data/calendar.json
 assets/land-dots.json
 assets/borders.json
+# The link preview, rendered from the live page at deploy time.
+assets/social.png
 
 # --- Python --------------------------------------------------------------
 __pycache__/

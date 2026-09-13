@@ -1,0 +1,20 @@
+{
+  "name": "orbis — the world economic calendar",
+  "short_name": "orbis",
+  "description": "Every scheduled economic release, central bank decision and market holiday on Earth, on a live 3D globe.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#05070c",
+  "theme_color": "#05070c",
+  "categories": ["finance", "productivity", "utilities"],
+  "icons": [
+    {
+      "src": "static/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

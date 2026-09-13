@@ -67,6 +67,11 @@ jobs:
       - name: Check the calendar and spreadsheet exports
         run: node tests/export.test.mjs .
 
+      # A URL is user input: hand-edited, truncated by a chat client, or three
+      # weeks stale. None of it may throw or strand the view.
+      - name: Check the shareable view
+        run: node tests/url.test.mjs .
+
       - name: Check the translation tables
         run: node tests/i18n.test.mjs .
 

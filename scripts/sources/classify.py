@@ -12,6 +12,19 @@ import re
 # Ordered: the first bucket whose pattern matches wins, so put the specific
 # and high-signal buckets (policy decisions, speeches) above the generic ones.
 CATEGORY_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
+    # First, because a holiday is not an indicator and its name often contains
+    # a word another bucket claims -- "Independence Day" was landing in "other"
+    # while a holiday category sat unused, and "National Day Golden Week" has
+    # nothing to do with the labour market. The holidays collector tags its own
+    # rows; these are the closures the calendar feeds publish as events.
+    ("holiday", (
+        "independence day", "national day", "new year", "christmas", "easter",
+        "golden week", "festival", "rosh hashanah", "yom kippur", "diwali",
+        "eid ", "ramadan", "lunar new year", "mid-autumn", "labour day",
+        "labor day", "memorial day", "thanksgiving", "bank holiday",
+        "public holiday", "market holiday", "unification day", "feast of",
+        "respect for the aged", "day of ",
+    )),
     ("speech", (
         "speaks", "speech", "testimony", "press conference", "remarks",
         "member ", "governor", "chair ", "chairman", "president ",
@@ -25,10 +38,14 @@ CATEGORY_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
     ("inflation", (
         "cpi", "inflation", "ppi", "price index", "hicp", "deflator",
         "pce price", "price growth", "wpi", "core prices", "rpi",
+        # Import and export prices are inflation as it arrives and as it
+        # leaves; wholesale prices are it one step before the shelf.
+        "import prices", "export prices", "wholesale prices", "used car prices",
     )),
     ("labor", (
         "employment", "unemployment", "payroll", "jobless", "job ", "jobs",
         "wage", "labour", "labor", "claimant", "average earnings", "vacancies",
+        "unemployed persons", "overtime pay",
     )),
     ("sentiment", (
         "pmi", "confidence", "sentiment", "zew", "ifo", "ism", "expectations",
@@ -38,14 +55,25 @@ CATEGORY_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
         "gdp", "industrial production", "retail sales", "manufacturing production",
         "economic activity", "capacity utilization", "factory orders",
         "machine orders", "durable goods", "business investment", "output",
+        # Cars, mining and tourism are activity measured a different way: they
+        # move with the cycle and were the largest group falling into "other".
+        "car registrations", "car sales", "car production", "auto production",
+        "vehicle sales", "motorbike sales", "tourist arrivals", "mining production",
+        "gold production", "machine tool orders", "new orders",
+        "household consumption", "manufacturing sales", "leading index",
+        "wholesale inventories", "business inventories",
+        "leading economic index", "coincident index", "redbook",
     )),
     ("trade", (
         "trade balance", "exports", "imports", "current account", "capital flows",
-        "tariff", "terms of trade", "foreign investment",
+        "tariff", "terms of trade", "foreign investment", "external debt",
+        "foreign direct investment", "balance of trade",
     )),
     ("housing", (
         "housing", "home sales", "building permits", "mortgage", "construction",
-        "house price", "hpi", "building approvals",
+        "house price", "hpi", "building approvals", "house approvals",
+        # MBA publishes mortgage applications; the index name does not say so.
+        "mba purchase", "mba mortgage",
     )),
     ("fiscal", (
         "budget", "deficit", "public sector", "government spending", "fiscal",
@@ -53,7 +81,7 @@ CATEGORY_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
     )),
     ("energy", (
         "crude oil", "oil inventories", "natural gas", "opec", "rig count",
-        "gasoline", "petroleum", "eia ",
+        "gasoline", "petroleum", "eia ", "rig count", "rigs count", "baker hughes",
     )),
     ("bonds", (
         "auction", "bond", "bill yield", "note yield", "yield", "t-bill",
@@ -61,6 +89,8 @@ CATEGORY_PATTERNS: list[tuple[str, tuple[str, ...]]] = [
     ("money", (
         "money supply", "m1", "m2", "m3", "loan growth", "private credit",
         "bank lending", "reserves", "foreign currency reserves",
+        "balance sheet", "consumer credit", "deposit growth",
+        "stock investment by foreigners", "treasury cash balance",
     )),
 ]
 

@@ -31,6 +31,7 @@ orbis plots the same data on a rotating globe:
 - **Rings pulse** only on releases landing within the next hour — nothing animates for decoration.
 - **A timeline strip** across the bottom shows the load of every day in the window as a stacked micro-chart, so a heavy week is visible before you click into it.
 - **Take it with you.** Whatever the panel is showing — a day, a country, whatever your filters left — exports as `.csv` for a spreadsheet or `.ics` for your calendar. The file is built in your browser and saved straight to your disk; nothing is uploaded.
+- **Send somebody a view.** The address bar follows the day and country you are looking at, so `?d=2026-09-30&c=BR` survives a reload and travels in a link. The page is installable too: everything it needs is already on the origin.
 
 The whole interface speaks English, Português and Español, including translated indicator names and country names. It picks your browser's language on first load and remembers the switch after that.
 
@@ -174,6 +175,8 @@ The two calendar feeds are **merged, not concatenated**. Two rows are the same r
 
 Matches are tagged `confirmed_by` and marked `✦` in the UI — a release two independent sources agree on is worth more than one that appears in a single feed. Unmatched rows from the secondary feed are kept as genuine additions.
 
+**The mark is rare on purpose.** About 1% of events carry it, because the cross-check covers nine major currencies against the primary feed's eighty countries: most releases have nothing to be corroborated against. `✦` means *two sources agree*, not *this one is verified and the others are not*.
+
 ### 4. Publish
 
 `fetch.py` writes one file and refuses to write a bad one:
@@ -242,6 +245,7 @@ Three things worth knowing if you run a fork:
 node tests/store.test.mjs .       # state layer and every selector
 node tests/format.test.mjs .      # number formatting, URL safety, solar maths
 node tests/export.test.mjs .      # the .ics and .csv the panel hands out
+node tests/url.test.mjs .         # the view carried in the address bar
 node tests/i18n.test.mjs .        # EN/PT/ES parity, against real feed titles
 node tests/merge.test.mjs .       # the reconciled dataset's shape
 node tests/offline.test.mjs .     # nothing reaches for a CDN
@@ -287,13 +291,17 @@ orbis/
 │   ├── globe.js            three.js scene, shaders, camera flights
 │   ├── panels.js           DOM rendering for the rails and timeline
 │   ├── export.js           .ics and .csv generation
+│   ├── url.js              the view carried in the address bar
 │   └── i18n.js             EN/PT/ES strings + indicator translation
 ├── scripts/
 │   ├── fetch.py            collect → reconcile → publish
 │   ├── build_geometry.py   TopoJSON → land dots + borders (run once)
 │   ├── serve.py            no-cache static dev server
+│   ├── social_card.mjs     renders the link preview from the live page
 │   └── sources/            one module per provider
-├── tests/                  seven suites; six need only Node
+├── tests/                  eight suites; seven need only Node
+├── static/icon.svg         the app icon, committed
+├── manifest.webmanifest    makes the page installable
 ├── vendor/                 three.js and the fonts, committed on purpose
 ├── data/countries.json     the only committed data: names, coords, regions
 └── .github/workflows/      CI and the Pages deploy
@@ -306,6 +314,7 @@ orbis/
 | `data/calendar.json` | ~550 KB | `scripts/fetch.py`, every run |
 | `assets/land-dots.json` | ~95 KB | `scripts/build_geometry.py`, once |
 | `assets/borders.json` | ~104 KB | `scripts/build_geometry.py`, once |
+| `assets/social.png` | ~190 KB | `scripts/social_card.mjs`, at deploy |
 
 ---
 
@@ -357,8 +366,11 @@ Adding a language means four edits: a block in `UI` and a phrase table in `PHRAS
 
 - [x] Vendored three.js so the page works fully offline
 - [x] Export the events on screen — `.csv` for a spreadsheet, `.ics` for a calendar
+- [x] A shareable view: `?d=2026-09-30&c=BR` survives a reload and travels in a link
+- [x] A notice when the calendar stops being rebuilt, rather than letting it age in silence
+- [x] Installable as an app, and a link preview rendered from the live page
 - [ ] Central bank meeting calendars scraped from the institutions themselves — the feeds stop at ~33 days, the banks publish years ahead
-- [ ] A staleness banner when `generated_at` falls too far behind
+- [ ] More languages — four edits each, and the parity test enforces the rest
 
 ---
 

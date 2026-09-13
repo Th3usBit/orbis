@@ -4,7 +4,7 @@
  */
 
 import {
-  state, loadData, subscribe, dayMarkers, imminentEvents,
+  state, loadData, subscribe, dayMarkers, imminentEvents, dayList,
   nextHighImpact, selectCountry, selectDay, clearSelection, todayKey,
 } from './store.js';
 import { createGlobe } from './globe.js';
@@ -13,6 +13,7 @@ import {
   renderSources, renderTooltip, bindPanelControls, renderFilterBadge,
 } from './panels.js';
 import { applyStaticStrings, initLang, setLang, t } from './i18n.js';
+import { parseView, writeView } from './url.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -28,6 +29,8 @@ async function boot() {
   } catch (error) {
     return fail(t('boot_failed'), error);
   }
+
+  applyViewFromUrl();
 
   try {
     globe = await createGlobe(document.getElementById('stage'), {
@@ -50,6 +53,14 @@ async function boot() {
   bindNextEventCard();
 
   renderAll();
+
+  // A link that names a country should open looking at it. subscribe() flies
+  // the camera on a change, and arriving already selected is not one.
+  if (state.selectedCountry) {
+    const country = state.countries[state.selectedCountry];
+    if (country) globe.focus(country.lat, country.lon);
+  }
+
   startTickers();
   reveal();
 }
@@ -73,6 +84,30 @@ function reveal() {
   const dismiss = () => hint.classList.add('is-hidden');
   document.getElementById('stage').addEventListener('pointerdown', dismiss, { once: true });
   setTimeout(dismiss, 9000);
+}
+
+/**
+ * Open on the view the link asked for, when it still exists.
+ *
+ * A shared link outlives the data it points at: the window moves every few
+ * hours, so yesterday's `?d=` is tomorrow's gone day. Both parameters are
+ * therefore checked against what was actually loaded, and a stale one is
+ * dropped rather than honoured — landing on an empty screen because a
+ * bookmark is three weeks old would read as the app being broken.
+ */
+function applyViewFromUrl() {
+  const { day, country } = parseView();
+
+  if (day && dayList().some((entry) => entry.key === day)) {
+    state.selectedDay = day;
+  }
+  if (country && state.countries[country]) {
+    state.selectedCountry = country;
+  }
+
+  // Normalise: a link with a dropped parameter, or none at all, should end up
+  // showing the address of what is actually on screen.
+  writeView({ day: state.selectedDay, country: state.selectedCountry });
 }
 
 /* ------------------------------------------------------------- rendering */
@@ -106,6 +141,14 @@ function refreshNextEvent() {
 }
 
 subscribe((reason) => {
+  // The address bar follows day and country only. Filters are deliberately
+  // left out: they are a way of reading the calendar rather than a place in
+  // it, and a link carrying somebody else's eight switched-off categories
+  // opens on a screen the sender never saw.
+  if (reason === 'day' || reason === 'country') {
+    writeView({ day: state.selectedDay, country: state.selectedCountry });
+  }
+
   if (reason === 'filter') {
     renderFilters();
     renderTimeline();
