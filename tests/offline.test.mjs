@@ -184,19 +184,23 @@ for (const [file, holder] of [
     text.includes('SIL Open Font License') && text.includes(holder));
 }
 
-/* The published site is distribution too, so the credits belong in the markup,
-   not only in files nobody opens. */
-check('the interface credits three.js', html.includes('threejs.org'));
-check('the interface credits both fonts',
-  html.includes('rsms.me/inter') && html.includes('jetbrains.com/lp/mono'));
-
-const i18nSource = await read('js/i18n.js');
-const creditKeys = [...html.matchAll(/data-i18n="(credits_[a-z_]+)"/g)].map((m) => m[1]);
-check('the credit line is translatable', creditKeys.length > 0);
-for (const key of creditKeys) {
-  const defined = [...i18nSource.matchAll(new RegExp(`\\b${key}:`, 'g'))].length;
-  check(`${key} is defined in all three languages`, defined === 3, `found ${defined}`);
+/* What MIT and the OFL actually require is that the notice travel with the
+   code -- not that it be printed on screen. Neither is a CC-BY-style licence
+   asking for visible attribution. So the check is that each licence sits in
+   the directory it covers, and gets published along with it. */
+for (const [dir, licence] of [
+  ['vendor/three', 'vendor/three/LICENSE'],
+  ['vendor/fonts', 'vendor/fonts/LICENSE-Inter.txt'],
+  ['vendor/fonts', 'vendor/fonts/LICENSE-JetBrainsMono.txt'],
+]) {
+  check(`${licence} ships beside the files in ${dir}`, await exists(licence));
 }
+
+/* three.js carries its own @license header; losing it would mean the build was
+   minified or rewritten in a way that strips notices. */
+const threeBuild = await read('vendor/three/three.module.min.js');
+check('the three.js build keeps its @license header',
+  threeBuild.includes('@license') && /three\.js/i.test(threeBuild.slice(0, 400)));
 
 console.log(failures === 0 ? '\nALL CHECKS PASSED\n' : `\n${failures} CHECK(S) FAILED\n`);
 process.exit(failures === 0 ? 0 : 1);

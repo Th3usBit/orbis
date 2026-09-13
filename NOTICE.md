@@ -28,9 +28,15 @@ under those names. orbis ships both unmodified, subset to `latin` and
 `latin-ext`, which the licence allows and which does not trigger the name
 reservation.
 
-**On three.js.** MIT. The notice above and the file in `vendor/three/` satisfy
-it. Both notices are also surfaced in the running interface, in the Sources
-panel, so a viewer of the published site sees them without reading the repo.
+**On three.js.** MIT. The notice above, the file in `vendor/three/` and the
+`@license` header the build carries all satisfy it.
+
+**On visible attribution.** Neither MIT nor the OFL asks for a credit printed
+on screen — that is a CC-BY-style requirement, and these are not CC-BY. What
+both require is that the notice travel with the code, which it does: every
+licence file sits in the directory it covers and is published with it, so
+`vendor/three/LICENSE` and the two font licences are reachable on the live
+site alongside the files they cover.
 
 ## Fetched at runtime, not distributed here
 
