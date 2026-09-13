@@ -14,6 +14,7 @@ import {
 import {
   t, tCount, locale, categoryLabel, impactLabel, regionLabel, eventTitle, countryName,
 } from './i18n.js';
+import { buildIcs, buildCsv, exportName } from './export.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -253,6 +254,13 @@ export function renderPanel() {
   // category, a country -- not only when a country is selected. Filtering down
   // to nothing and finding no way back is the worst version of this screen.
   reset.hidden = !isNarrowed();
+
+  // Nothing to export is not an empty file: it is no button. A VCALENDAR with
+  // no VEVENT is rejected by some clients, and a spreadsheet of headers alone
+  // answers nothing.
+  const exportable = events.length > 0;
+  $('export-ics').hidden = !exportable;
+  $('export-csv').hidden = !exportable;
 
   host.replaceChildren();
 
@@ -601,10 +609,45 @@ export function renderFilterBadge() {
   badge.textContent = String(n);
 }
 
+/**
+ * Hand a generated file to the browser.
+ *
+ * A blob inherits the page's origin, so the link is same-origin and the file
+ * never leaves the machine -- no upload, no server, consistent with a page
+ * that makes no third-party request at all. The revoke is deferred because
+ * Firefox cancels a download whose object URL is released in the same tick.
+ *
+ * Wrapped, because a failed download must not throw into a render path: the
+ * calendar on screen is worth more than the copy of it.
+ */
+function download(text, mime, filename) {
+  try {
+    const url = URL.createObjectURL(new Blob([text], { type: mime }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 0);
+  } catch (error) {
+    console.error('export failed', error);
+  }
+}
+
 export function bindPanelControls() {
   // Reset clears the filters as well as the selection: a button labelled
   // "clear" that leaves three filters on is a lie.
   $('panel-reset').addEventListener('click', resetFilters);
+
+  $('export-ics').addEventListener('click', () => {
+    const { events } = panelEvents();
+    download(buildIcs(events, { safeUrl, generatedAt: state.generatedAt }),
+      'text/calendar;charset=utf-8', exportName('ics'));
+  });
+
+  $('export-csv').addEventListener('click', () => {
+    const { events } = panelEvents();
+    download(buildCsv(events, { surpriseOf }), 'text/csv;charset=utf-8', exportName('csv'));
+  });
 
   $('tl-prev').addEventListener('click', () => stepDay(-1));
   $('tl-next').addEventListener('click', () => stepDay(1));

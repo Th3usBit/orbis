@@ -24,6 +24,7 @@ orbis plots the same data on a rotating globe:
 - **The lit half of the planet is real.** The day/night terminator is computed from the actual subsolar point, so you can see at a glance whether Tokyo is trading while Frankfurt sleeps.
 - **Rings pulse** only on releases landing within the next hour — nothing animates for decoration.
 - **A timeline strip** across the bottom shows the load of every day in the window as a stacked micro-chart, so a heavy week is visible before you click into it.
+- **Take it with you.** Whatever the panel is showing — a day, a country, whatever your filters left — exports as `.ics` for your calendar or `.csv` for a spreadsheet. The file is built in your browser and saved straight to your disk; nothing is uploaded.
 
 The whole interface speaks English, Português and Español, including translated indicator names and country names. It picks your browser's language on first load and remembers the switch after that.
 
@@ -179,6 +180,7 @@ fetched data:
 python scripts/fetch.py
 node tests/store.test.mjs .
 node tests/format.test.mjs .
+node tests/export.test.mjs .
 node tests/i18n.test.mjs .
 node tests/merge.test.mjs .
 node tests/offline.test.mjs .
@@ -192,7 +194,7 @@ node tests/offline.test.mjs .
 - [ ] Central bank meeting calendars scraped from the institutions themselves
 - [ ] Historical surprise index per country
 - [x] Vendored three.js so the page works fully offline
-- [ ] iCal export of the events matching your filters
+- [x] Export the events on screen — `.ics` for a calendar, `.csv` for a spreadsheet
 
 ## Disclaimer
 

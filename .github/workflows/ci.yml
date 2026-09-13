@@ -62,6 +62,11 @@ jobs:
       - name: Check the formatting and the astronomy
         run: node tests/format.test.mjs .
 
+      # Both export formats fail quietly: an over-long line or an unescaped
+      # comma only shows up when somebody imports the file somewhere else.
+      - name: Check the calendar and spreadsheet exports
+        run: node tests/export.test.mjs .
+
       - name: Check the translation tables
         run: node tests/i18n.test.mjs .
 
@@ -86,9 +91,10 @@ jobs:
     # enough to catch a regression.
     #
     # Playwright stays a CI tool and never enters the repository: no
-    # package.json, no lockfile, nothing committed. `npx --yes` fetches it into
-    # the runner's cache for this job alone, exactly the way setup-node and
-    # setup-python are fetched. The site still needs no package manager.
+    # package.json, no lockfile, nothing committed. It is installed under
+    # RUNNER_TEMP for this job alone, exactly the way setup-node and
+    # setup-python fetch their own tools. The site still needs no package
+    # manager.
     steps:
       - uses: actions/checkout@v4
 

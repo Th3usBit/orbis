@@ -9,6 +9,7 @@
 - [ ] `python scripts/fetch.py` still succeeds
 - [ ] `node tests/store.test.mjs .` passes
 - [ ] `node tests/format.test.mjs .` passes
+- [ ] `node tests/export.test.mjs .` passes
 - [ ] `node tests/i18n.test.mjs .` passes
 - [ ] `node tests/merge.test.mjs .` passes
 - [ ] `node tests/offline.test.mjs .` passes

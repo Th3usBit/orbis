@@ -24,6 +24,7 @@ O orbis põe os mesmos dados num globo giratório:
 - **A metade iluminada do planeta é real.** O terminador dia/noite é calculado a partir do ponto subsolar de verdade, então dá para ver num relance se Tóquio está operando enquanto Frankfurt dorme.
 - **Anéis pulsam** somente em divulgações que acontecem na próxima hora — nada anima por enfeite.
 - **Uma faixa de timeline** na base mostra a carga de cada dia da janela como um micro-gráfico empilhado, então uma semana pesada aparece antes de você clicar nela.
+- **Leve com você.** O que estiver no painel — um dia, um país, o que os seus filtros deixaram — sai em `.ics` para o seu calendário ou `.csv` para planilha. O arquivo é montado no seu navegador e salvo direto no seu disco; nada é enviado para lugar nenhum.
 
 Toda a interface fala Português, English e Español, incluindo nomes de indicadores e de países traduzidos. Na primeira visita ela adota o idioma do navegador e, depois disso, lembra a sua escolha.
 
@@ -179,6 +180,7 @@ próprios dados recém-coletados:
 python scripts/fetch.py
 node tests/store.test.mjs .
 node tests/format.test.mjs .
+node tests/export.test.mjs .
 node tests/i18n.test.mjs .
 node tests/merge.test.mjs .
 node tests/offline.test.mjs .
@@ -192,7 +194,7 @@ node tests/offline.test.mjs .
 - [ ] Calendários de reunião de bancos centrais coletados direto das instituições
 - [ ] Índice histórico de surpresa por país
 - [x] three.js embarcado no repo para a página funcionar 100% offline
-- [ ] Exportação iCal dos eventos que passam pelos seus filtros
+- [x] Exportar os eventos da tela — `.ics` para o calendário, `.csv` para a planilha
 
 ## Aviso
 

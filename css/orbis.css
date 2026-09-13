@@ -655,7 +655,11 @@ body::after {
   text-transform: uppercase;
   color: var(--ink-faint);
 }
-.panel-reset {
+/* Three pills share this: export as a calendar, export as a spreadsheet, and
+   clear. One treatment, because they are the same kind of thing -- something
+   you do to the list you are looking at -- and three different ones would be
+   three things to read instead of one row to scan. */
+.panel-pill {
   font-size: 10px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -665,7 +669,18 @@ body::after {
   border-radius: 999px;
   flex: none;
 }
-.panel-reset:hover { color: var(--ink); border-color: var(--line-strong); }
+.panel-pill:hover { color: var(--ink); border-color: var(--line-strong); }
+
+/* Their own row, so the title wraps against the group rather than against
+   whichever button happens to be showing. Measured at the worst case the app
+   can produce -- "República Dominicana" on a 390px screen, where the header is
+   370px wide -- the three pills need 151px and leave 18px of slack. */
+.panel-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
 
 .panel-body { overflow-y: auto; flex: 1; min-height: 0; }
 .panel-body:focus { outline: none; }
