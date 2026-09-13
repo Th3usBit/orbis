@@ -47,3 +47,10 @@ secrets.json
 .pypirc
 .aws/
 .ssh/
+
+# graft — local only. The graph cache is regenerable (`graft build`); the
+# agent wiring is a personal setup choice, not a project requirement.
+/graft/
+.claude/
+.mcp.json
+.ignore
