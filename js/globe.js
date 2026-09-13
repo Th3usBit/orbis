@@ -15,13 +15,7 @@
 
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-
-export const IMPACT_COLORS = {
-  3: '#ff4d6d',
-  2: '#ffb347',
-  1: '#6c8cb5',
-  0: '#8b7bd8',
-};
+import { IMPACT_COLORS, REGION_COLOR } from './store.js';
 
 const RADIUS = 1;
 const MAX_MARKERS = 180;
@@ -199,7 +193,7 @@ const PULSE_FRAG = /* glsl */`
 
 /* ------------------------------------------------------------------ setup */
 
-export async function createGlobe(canvas, handlers = {}, options = {}) {
+export async function createGlobe(canvas, handlers = {}) {
   const [landDots, borders] = await Promise.all([
     fetch('assets/land-dots.json').then((r) => r.json()),
     fetch('assets/borders.json').then((r) => r.json()),
@@ -209,9 +203,6 @@ export async function createGlobe(canvas, handlers = {}, options = {}) {
     canvas,
     antialias: true,
     powerPreference: 'high-performance',
-    // Only in diagnostics mode: keeping the buffer lets us read the rendered
-    // pixels back, at a small cost to performance.
-    preserveDrawingBuffer: Boolean(options.preserveDrawingBuffer),
   });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   renderer.setClearColor(0x05070c, 1);
@@ -599,29 +590,10 @@ export async function createGlobe(canvas, handlers = {}, options = {}) {
     focus,
     resize,
 
-    /** Everything scripts/diagnostics needs to judge the render without eyes. */
-    inspect() {
-      const context = renderer.getContext();
-      const debugInfo = context.getExtension('WEBGL_debug_renderer_info');
-      const distance = camera.position.length();
-      const halfHeight = Math.tan((camera.fov / 2) * DEG) * distance;
-
-      return {
-        gpu: debugInfo ? context.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL) : 'unknown',
-        canvas: { width: canvas.clientWidth, height: canvas.clientHeight },
-        pixelRatio: renderer.getPixelRatio(),
-        cameraDistance: distance,
-        // Apparent on-screen size of the globe and of one marker pillar.
-        globeDiameterPx: (2 * RADIUS / (2 * halfHeight)) * canvas.clientHeight,
-        markerWidthPx: (2 * 0.0145 / (2 * halfHeight)) * canvas.clientHeight,
-        landDots: landDots.lon.length,
-        markers: markers.count,
-        pulses: pulses.geometry.drawRange.count,
-        dotSizePx: dotUniforms.uSize.value,
-        drawCalls: renderer.info.render.calls,
-        triangles: renderer.info.render.triangles,
-      };
-    },
+    /** Stop the loop and release the GL context. Nothing calls this today --
+     *  the globe lives as long as the page -- but tearing down a WebGL scene
+     *  is not something to work out later, under whatever pressure made it
+     *  necessary. */
     dispose() {
       running = false;
       controls.dispose();
@@ -719,7 +691,7 @@ function buildBorders(data) {
   geometry.setAttribute('position', new THREE.Float32BufferAttribute(vertices, 3));
 
   return new THREE.LineSegments(geometry, new THREE.LineBasicMaterial({
-    color: new THREE.Color('#5d86ad'),
+    color: new THREE.Color(REGION_COLOR),
     transparent: true,
     opacity: 0.19,
     depthWrite: false,

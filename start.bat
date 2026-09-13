@@ -8,9 +8,12 @@ echo   ----------------------------------------------
 echo.
 
 rem --- Locate Python (no packages required, standard library only) ----------
+rem The launcher first: `where python` also matches the Windows Store stub,
+rem which is on PATH by default and exits without running anything. `py -3`
+rem resolves a real installation when there is one.
 set "PY="
-where python >nul 2>&1 && set "PY=python"
-if not defined PY ( where py >nul 2>&1 && set "PY=py -3" )
+where py >nul 2>&1 && set "PY=py -3"
+if not defined PY ( where python >nul 2>&1 && set "PY=python" )
 
 if not defined PY (
   echo   [x] Python 3 was not found on your PATH.
@@ -22,7 +25,12 @@ if not defined PY (
 )
 
 rem --- Globe geometry: generated once, then cached in assets/ ---------------
-if not exist "assets\borders.json" (
+rem Both files or neither: the globe needs the dot matrix and the outlines, and
+rem checking only one of them let a working copy that had lost land-dots.json
+rem report "geometry cached" and then draw a planet with no land on it.
+if not exist "assets\land-dots.json" set "NEEDGEO=1"
+if not exist "assets\borders.json" set "NEEDGEO=1"
+if defined NEEDGEO (
   echo   [1/3] Building globe geometry ^(first run only^)...
   %PY% scripts\build_geometry.py || goto :failed
 ) else (
@@ -55,8 +63,12 @@ echo       public-domain map data and the economic calendar, neither of
 echo       which is committed to this repository. Check your connection
 echo       ^(and any proxy or firewall^) and try again.
 echo.
-echo       If you already have data from an earlier run:
-echo         start.bat offline
-echo.
+rem Only offer `offline` when there is actually something to serve. Suggesting
+rem it on a first run sends the reader to a command that cannot work yet.
+if exist "data\calendar.json" if exist "assets\land-dots.json" (
+  echo       You already have data from a previous run. To use it:
+  echo         start.bat offline
+  echo.
+)
 pause
 exit /b 1

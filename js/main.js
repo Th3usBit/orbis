@@ -47,7 +47,6 @@ async function boot() {
   bindPanelControls();
   bindLanguage();
   bindFilterPanel();
-  bindScrollHints();
   bindNextEventCard();
 
   renderAll();
@@ -260,27 +259,6 @@ function bindFilterPanel() {
   matchMedia('(min-width: 1041px)').addEventListener('change', (e) => {
     if (e.matches) setOpen(false);
   });
-}
-
-/**
- * Drop the bottom fade on a scroll box once there is nothing left below it,
- * so the hint means "there is more" rather than decorating every state.
- */
-function bindScrollHints() {
-  for (const box of document.querySelectorAll('.card-scroll')) {
-    const sync = () => {
-      const atEnd = box.scrollTop + box.clientHeight >= box.scrollHeight - 2;
-      const fits = box.scrollHeight <= box.clientHeight + 2;
-      box.classList.toggle('is-at-end', atEnd || fits);
-    };
-    box.addEventListener('scroll', sync, { passive: true });
-    // The chips are rendered after this runs and again on every filter change,
-    // so observe the content rather than measuring an empty box once.
-    new ResizeObserver(sync).observe(box);
-    if (box.firstElementChild) new ResizeObserver(sync).observe(box.firstElementChild);
-    new MutationObserver(sync).observe(box, { childList: true, subtree: true });
-    sync();
-  }
 }
 
 function bindLanguage() {

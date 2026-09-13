@@ -9,11 +9,11 @@
 import {
   IMPACTS, REGIONS, state, dayList, panelEvents, filterCounts,
   selectDay, selectCountry, toggleEvent, toggleFilter, clearSelection, todayKey, activeFilterCount, isNarrowed, resetFilters,
+  IMPACT_COLORS, REGION_COLOR,
 } from './store.js';
 import {
   t, tCount, locale, categoryLabel, impactLabel, regionLabel, eventTitle, countryName,
 } from './i18n.js';
-import { IMPACT_COLORS } from './globe.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -91,7 +91,7 @@ export function renderFilters() {
     (value) => impactLabel(value), (value) => IMPACT_COLORS[value]);
 
   renderFilterRows($('filter-region'), 'region', REGIONS,
-    (value) => regionLabel(value), () => '#5d86ad');
+    (value) => regionLabel(value), () => REGION_COLOR);
 
   renderCategoryChips();
 }

@@ -51,6 +51,7 @@ Working offline afterwards:
 python scripts/build_geometry.py    # regenerate assets/
 python scripts/fetch.py             # regenerate data/calendar.json
 node tests/store.test.mjs .         # smoke-test the state layer (needs Node 18+)
+node tests/format.test.mjs .        # formatting, URL safety and the solar maths
 node tests/i18n.test.mjs .          # check the EN/PT/ES translation tables
 node tests/merge.test.mjs .         # check the reconciled dataset
 node tests/ui.test.mjs .            # UI/UX in a real browser (needs Playwright)
@@ -64,14 +65,19 @@ passes locally on a clean checkout, it will pass there.
 Playwright: contrast measured on rendered pixels rather than declared
 colours, keyboard reach, the empty state, and the layout at four widths.
 
-It is the only test with a dependency, so it is opt-in: it exits 0 with a
-SKIP notice when Playwright is absent, and CI does not run it. The site
-itself still needs no package manager. To run it:
+It is the only test with a dependency, so it is opt-in locally: it exits 0
+with a SKIP notice when Playwright is absent. CI installs a browser and runs
+it on Linux, outside the checkout -- nothing enters the repository and the
+site still needs no package manager. To run it yourself:
 
 ```bash
 npx playwright@1 install chromium
-node tests/ui.test.mjs .
+PLAYWRIGHT_PATH=<path to playwright/index.mjs> node tests/ui.test.mjs .
 ```
+
+Point `PLAYWRIGHT_PATH` at the package's ESM entry. The CommonJS `index.js`
+resolves but exports no named `chromium`, so the suite would print SKIP and
+exit 0 -- a pass that tested nothing.
 
 It starts the dev server itself if one is not already listening.
 

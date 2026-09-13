@@ -6,6 +6,7 @@
  * respond -- cannot be answered from the stylesheet.
  */
 import { spawn } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 
 /* Playwright is not a dependency of orbis and never will be -- the site runs
    without a package manager. This test is opt-in: it uses whatever Playwright
@@ -16,7 +17,17 @@ let chromium;
      and one left behind by `npx playwright`. Any of them is fine; none of them
      is a failure, because the site itself needs no package manager. */
   const candidates = ['playwright'];
-  if (process.env.PLAYWRIGHT_PATH) candidates.unshift(process.env.PLAYWRIGHT_PATH);
+  if (process.env.PLAYWRIGHT_PATH) {
+    const given = process.env.PLAYWRIGHT_PATH;
+    /* A filesystem path has to become a file:// URL before import() will take
+       it -- on Windows a bare C:\... is read as a protocol and silently fails
+       the lookup, which showed up as a SKIP that looked like a pass. Try the
+       URL form first, then the raw value for a bare package name. */
+    if (!given.startsWith('file:') && /[\\/]/.test(given)) {
+      candidates.unshift(pathToFileURL(given).href);
+    }
+    candidates.unshift(given);
+  }
 
   for (const name of candidates) {
     try {

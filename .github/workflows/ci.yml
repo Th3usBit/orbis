@@ -55,6 +55,13 @@ jobs:
       - name: Smoke-test the state layer
         run: node tests/store.test.mjs .
 
+      # safeUrl is the second layer between a third-party feed and an href, and
+      # formatValue decides what a number looks like in every row. Neither had
+      # a test until IMPACT_COLORS moved out of globe.js and stopped dragging
+      # three into a plain node import.
+      - name: Check the formatting and the astronomy
+        run: node tests/format.test.mjs .
+
       - name: Check the translation tables
         run: node tests/i18n.test.mjs .
 
@@ -66,6 +73,59 @@ jobs:
       # Guards the offline promise: fails if anything reaches for a CDN again.
       - name: Check the page depends on nothing remote
         run: node tests/offline.test.mjs .
+
+  interface:
+    name: The interface in a real browser
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    # The questions this suite asks -- is the text readable, is the control
+    # reachable, does the globe get a GL context -- cannot be answered from the
+    # stylesheet, and it was running nowhere: 37 checks that only fired if a
+    # contributor remembered them by hand. Linux only, because the answers are
+    # about CSS and the DOM rather than about the platform, and one browser is
+    # enough to catch a regression.
+    #
+    # Playwright stays a CI tool and never enters the repository: no
+    # package.json, no lockfile, nothing committed. `npx --yes` fetches it into
+    # the runner's cache for this job alone, exactly the way setup-node and
+    # setup-python are fetched. The site still needs no package manager.
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 'lts/*'
+
+      - name: Build the globe geometry
+        run: python scripts/build_geometry.py
+
+      - name: Collect the calendar
+        run: python scripts/fetch.py --allow-partial
+
+      # Installed outside the checkout, so no package.json or lockfile ever
+      # appears next to the site. `npx playwright` alone would not do: it
+      # leaves the package in npx's cache, where a bare `import('playwright')`
+      # from this directory cannot reach it -- the suite would find nothing,
+      # print SKIP and exit 0, which reads as a pass.
+      - name: Install a browser
+        run: |
+          mkdir -p "$RUNNER_TEMP/pw"
+          cd "$RUNNER_TEMP/pw"
+          npm init -y >/dev/null
+          npm install --no-save playwright@1
+          npx playwright install --with-deps chromium
+
+      # index.mjs, not index.js: the CommonJS entry resolves but exposes no
+      # named `chromium` export, so the suite would skip while looking healthy.
+      # The suite starts scripts/serve.py on its own.
+      - name: Check the interface
+        env:
+          PLAYWRIGHT_PATH: ${{ runner.temp }}/pw/node_modules/playwright/index.mjs
+        run: node tests/ui.test.mjs .
 
   oldest-python:
     name: Python 3.9, the version the README promises

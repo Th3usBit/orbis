@@ -12,6 +12,28 @@ const listeners = new Set();
 export const IMPACTS = [3, 2, 1, 0];
 export const REGIONS = ['americas', 'europe', 'asiapac', 'mea'];
 
+/**
+ * The impact scale, and the one neutral tone that stands for "a place".
+ *
+ * These live here rather than in globe.js because they are data about the
+ * scale, not about the WebGL scene: the pillars, the timeline bars, the filter
+ * dots and the event rows all colour by impact and must agree. Keeping them in
+ * globe.js made panels.js import the module that imports three, which put a
+ * DOM renderer behind a WebGL dependency it never uses -- and put every pure
+ * helper in panels.js out of reach of a plain `node` test.
+ *
+ * css/orbis.css mirrors these as --impact-*; the comment there says so.
+ */
+export const IMPACT_COLORS = {
+  3: '#ff4d6d',
+  2: '#ffb347',
+  1: '#6c8cb5',
+  0: '#8b7bd8',
+};
+
+/** Borders on the globe, and the region filter dots: the same "somewhere". */
+export const REGION_COLOR = '#5d86ad';
+
 export const state = {
   events: [],
   countries: {},

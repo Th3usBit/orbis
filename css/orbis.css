@@ -425,17 +425,14 @@ body::after {
 }
 .rail-right { grid-area: right; }
 
-/* Measured before changing anything: of 861px of rail content, 290px was
-   structure -- padding, card titles and gaps -- against 716px of room at
-   1440x900. This tightens the structure so every card fits without dropping a
-   single figure. */
 /* One panel, not five boxes.
  *
  * Measured on the old rail: 28 closed outlines and 5 different corner radii to
- * read 5 groups. Every card drew its own border and its own glass, so the eye
- * spent its effort on frames rather than on figures. Grouping is carried by a
- * rule and by space now — the cheapest separators there are — and the glass is
- * drawn once, by the rail. */
+ * read 5 groups, and of 861px of content 290px was structure -- padding, card
+ * titles and gaps -- against 716px of room at 1440x900. Every card drew its own
+ * border and its own glass, so the eye spent its effort on frames rather than
+ * on figures. Grouping is carried by a rule and by space now — the cheapest
+ * separators there are — and the glass is drawn once, by the rail. */
 .card {
   border: 0;
   border-radius: 0;
@@ -468,51 +465,29 @@ body::after {
   color: var(--ink-faint);
 }
 
-/* Fourteen category chips in a 150px box showed six and gave no sign the rest
-   existed. More room, plus a fade at the bottom edge that only appears while
-   something is still below the fold. */
-/* The one card that gives way. Every other card in the rail is sized by its
-   content; this one takes whatever height is left so that Sources -- and the
-   credits under it -- stay on screen at 768px as well as 1080px. A fixed cap
-   was always wrong at one end or the other. */
-/* Takes the height left over when the rail has room to give, and keeps its own
-   scroll when it does not. Squeezing the cards to fit a short screen made all
-   five cramped instead of letting the one column scroll, which is what a side
-   panel is supposed to do. */
-/* Cut between chip rows, never through one.
+/* The categories group shows every chip it has, and never scrolls on its own.
  *
- * A pixel height cannot do this: the chips reflow with the column width, so a
- * cap that lands cleanly on the desktop rail slices a row in half in the
- * mobile sheet. Expressing the cap in rows -- chip height plus the gap above
- * it -- lands on a boundary at any width. */
-/* The one group that grows. Every other card is sized by its content; this
-   takes whatever the column has left, which on a 1080p screen is enough for
-   all fourteen chips with no scrolling at all. Where it is not enough -- a
-   short laptop -- it scrolls rather than pushing Sources off the panel. */
-/* Never scrolls on its own.
+ * This name is a fossil: the group did once carry its own scroller, and the
+ * ideas that followed -- a fade at the fold, a cap measured in chip rows, a
+ * card that grew into the spare height -- each solved a problem the next one
+ * removed. What settled the question was that a scrollbar inside a group is
+ * the worst of both worlds: it slices a chip in half at the boundary and puts
+ * a second scrolling surface inside a panel that already scrolls. So the group
+ * is sized by its content like every other card, and when the column cannot
+ * hold everything the column scrolls -- one bar, at the edge of the panel,
+ * where a reader expects it.
  *
- * A scrollbar inside a group is the worst of both worlds: it slices a chip in
- * half at the boundary and puts a second scrolling surface inside a panel that
- * already scrolls. The group shows every chip it has; when the column cannot
- * hold everything, the column scrolls -- one bar, at the edge of the panel,
- * where a reader expects it. */
+ * flex-grow stays 0 for the same reason the others grow: this is the tallest
+ * group, so giving it a share of the slack would pad the one card that is
+ * already full at the cost of the ones that are not. */
 .card-scroll {
   flex: none;
   overflow: visible;
   padding-bottom: 0;
 }
-/* The categories group is the tallest, so it takes the least share of the
-   slack -- growing it further would only pad a group that already fills its
-   space, at the cost of the ones that do not. */
-.card-scroll { flex-grow: 0; }
 
-/* Spare room is shared between every group rather than pooled above the last
-   one. Pinning Sources to the foot put 188px in a single place on a tall
-   screen, which reads as a hole; spread evenly it reads as the panel
-   breathing. space-between does that and costs nothing when the column is
-   exactly full. */
-/* The padding moves onto the chip container so it scrolls with the content
-   instead of reserving a strip at the bottom that a half-row peeks into. */
+/* On the chips rather than on the card, so the last row has room beneath it
+   without the card reserving a strip that reads as a gap above the divider. */
 .card-scroll .chips { padding-bottom: 13px; }
 
 /* --- Next high-impact ----------------------------------------------------- */
@@ -989,16 +964,13 @@ body::after {
 /* The rails scroll, and at 24% the thumb was invisible enough that the panel
    looked clipped rather than scrollable. Visible enough to find, quiet enough
    to ignore. */
-.rail-left, .panel-body, .card-scroll { scrollbar-width: thin; scrollbar-color: rgba(125, 155, 195, 0.5) transparent; }
+.rail-left, .panel-body { scrollbar-width: thin; scrollbar-color: rgba(125, 155, 195, 0.5) transparent; }
 .rail-left::-webkit-scrollbar,
-.panel-body::-webkit-scrollbar,
-.card-scroll::-webkit-scrollbar { width: 7px; }
+.panel-body::-webkit-scrollbar { width: 7px; }
 .rail-left::-webkit-scrollbar-thumb,
-.panel-body::-webkit-scrollbar-thumb,
-.card-scroll::-webkit-scrollbar-thumb { background: rgba(125, 155, 195, 0.45); border-radius: 4px; }
+.panel-body::-webkit-scrollbar-thumb { background: rgba(125, 155, 195, 0.45); border-radius: 4px; }
 .rail-left::-webkit-scrollbar-track,
-.panel-body::-webkit-scrollbar-track,
-.card-scroll::-webkit-scrollbar-track { background: transparent; }
+.panel-body::-webkit-scrollbar-track { background: transparent; }
 
 /* --------------------------------------------------------------------------
    Responsive
