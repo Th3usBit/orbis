@@ -110,6 +110,9 @@ subscribe((reason) => {
   if (reason === 'filter') {
     renderFilters();
     renderTimeline();
+    // The badge is the only sign filters are narrowing the view once the rail
+    // is collapsed, so it has to follow every change rather than only boot.
+    renderFilterBadge();
   }
   if (reason === 'day') renderTimeline();
 
