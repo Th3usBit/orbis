@@ -216,8 +216,22 @@ console.log('\n=== UI: os fundamentos sobrevivem a densidade ===');
     const texto = parseFloat(getComputedStyle(document.querySelector('.filter-label')).fontSize);
     return {
       menorAlvo: Math.round(Math.min(...alvos)),
-      gapEntreCards: parseFloat(getComputedStyle(document.querySelector('.rail-left')).gap),
+      /* Groups are separated by a rule and by padding now, not by a gap, so
+         measure the real distance: the space from the last row of one group to
+         the first row of the next. */
+      separacaoEntreGrupos: (() => {
+        const cards = [...document.querySelectorAll('.rail-left .card')];
+        if (cards.length < 2) return 0;
+        const a = cards[1].getBoundingClientRect().top;
+        const ultimaLinhaAcima = [...cards[0].children].at(-1)?.getBoundingClientRect().bottom ?? a;
+        const primeiraLinhaAbaixo = cards[1].querySelector('.card-title')?.getBoundingClientRect().top ?? a;
+        return Math.round(primeiraLinhaAbaixo - ultimaLinhaAcima);
+      })(),
       gapEntreLinhas: parseFloat(getComputedStyle(document.querySelector('.filter-rows')).gap || '0'),
+      temDivisoria: (() => {
+        const segundo = document.querySelectorAll('.rail-left .card')[1];
+        return segundo ? parseFloat(getComputedStyle(segundo).borderTopWidth) > 0 : false;
+      })(),
       ritmo: +(linha / texto).toFixed(2),
       tituloPx: getComputedStyle(document.querySelector('.card-title')).fontSize,
       corpoPx: getComputedStyle(document.querySelector('.filter-label')).fontSize,
@@ -228,9 +242,12 @@ console.log('\n=== UI: os fundamentos sobrevivem a densidade ===');
   check('todo alvo clicavel tem ao menos 24px', F.menorAlvo >= 24, `menor = ${F.menorAlvo}px`);
 
   // Gestalt proximity: the space between groups must beat the space within
-  // them, or the cards stop reading as separate things.
-  check('cards se separam mais entre si do que suas linhas internas',
-    F.gapEntreCards > F.gapEntreLinhas, `${F.gapEntreCards} vs ${F.gapEntreLinhas}`);
+  // them, or the groups stop reading as separate things. The rail carries that
+  // separation as a hairline rule plus padding rather than as a gap.
+  check('grupos se separam mais entre si do que suas linhas internas',
+    F.separacaoEntreGrupos > F.gapEntreLinhas,
+    `${F.separacaoEntreGrupos}px entre grupos vs ${F.gapEntreLinhas}px entre linhas`);
+  check('os grupos tem uma divisoria visivel', F.temDivisoria);
 
   check('a linha respira ao menos 1.6x a altura do texto', F.ritmo >= 1.6, `razao ${F.ritmo}`);
   check('titulo e corpo mantem tamanhos distintos', F.tituloPx !== F.corpoPx);
