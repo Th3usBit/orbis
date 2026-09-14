@@ -67,8 +67,8 @@ const check = (name, ok, detail = '') => {
   ok ? passes++ : fails++;
 };
 
-const open = async (w = 1440, h = 900, tz = 'America/Sao_Paulo') => {
-  const page = await browser.newPage({ viewport: { width: w, height: h }, timezoneId: tz });
+const open = async (w = 1440, h = 900, tz = 'America/Sao_Paulo', reducedMotion = 'no-preference') => {
+  const page = await browser.newPage({ viewport: { width: w, height: h }, timezoneId: tz, reducedMotion });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL, { waitUntil: 'networkidle' });
@@ -115,6 +115,17 @@ console.log('\n=== UI: o que o usuario ve ===');
     return s.outlineWidth !== '0px' || s.boxShadow !== 'none';
   });
   check('o foco do teclado e visivel', focus);
+
+  /* The blue border says "this day" to anyone looking at it; a screen reader
+     was handed twenty-nine identical buttons and no way to tell which one the
+     list below belongs to. */
+  const dia = await page.evaluate(() => {
+    const marcados = document.querySelectorAll('.tl-day[aria-current]');
+    return { n: marcados.length, valor: marcados[0]?.getAttribute('aria-current'),
+      eOSelecionado: marcados[0]?.classList.contains('is-selected') };
+  });
+  check('o dia selecionado se anuncia com aria-current="date"',
+    dia.n === 1 && dia.valor === 'date' && dia.eOSelecionado, JSON.stringify(dia));
 
   await page.close();
 }
@@ -213,6 +224,100 @@ console.log('\n=== UX: o usuario consegue concluir tarefas ===');
   await page.close();
 }
 
+/* ========================================================= 4. TECLADO == */
+console.log('\n=== UX: o teclado ===');
+{
+  const { page } = await open();
+
+  /* ← → are a shortcut for the view, not a binding for whatever has focus.
+     Listening on document meant arrowing off the language buttons changed the
+     day, and Escape on a chip threw away the country panel being read. */
+  const naoSequestra = async (seletor, tecla) => {
+    await page.locator(seletor).first().focus();
+    const antes = await page.evaluate(() => document.querySelector('#panel-title')?.textContent);
+    await page.keyboard.press(tecla);
+    await page.waitForTimeout(400);
+    const depois = await page.evaluate(() => document.querySelector('#panel-title')?.textContent);
+    return { ok: antes === depois, antes, depois };
+  };
+
+  for (const [nome, seletor] of [
+    ['botao de idioma', '.lang button'],
+    ['chip de categoria', '#filter-category button'],
+    ['filtro de impacto', '#filter-impact button'],
+  ]) {
+    const r = await naoSequestra(seletor, 'ArrowRight');
+    check(`seta num ${nome} nao muda o dia`, r.ok, `${r.antes} -> ${r.depois}`);
+  }
+
+  /* ...and still works where the day IS the subject. */
+  await page.evaluate(() => { document.activeElement?.blur(); document.body.focus(); });
+  const diaAntes = await page.evaluate(() => document.querySelector('#panel-title')?.textContent);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(500);
+  check('seta ainda muda o dia sem foco em controle',
+    diaAntes !== await page.evaluate(() => document.querySelector('#panel-title')?.textContent));
+
+  /* Escape unwinds the innermost thing that is open, from where the view has
+     focus -- not the country selection from anywhere. */
+  await page.locator('#next-event').click();
+  await page.waitForTimeout(1200);
+  const paisAntes = await page.evaluate(() => document.querySelector('#panel-title')?.textContent);
+  await page.locator('#filter-category button').first().focus();
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  check('Escape num chip nao descarta o pais selecionado',
+    paisAntes === await page.evaluate(() => document.querySelector('#panel-title')?.textContent));
+
+  await page.locator('#event-list button.event').first().click();
+  await page.waitForTimeout(500);
+  const abertas = await page.evaluate(() => document.querySelectorAll('.event.is-open').length);
+  await page.evaluate(() => { document.activeElement?.blur(); document.body.focus(); });
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  const depoisDeFechar = await page.evaluate(() => ({
+    abertas: document.querySelectorAll('.event.is-open').length,
+    titulo: document.querySelector('#panel-title')?.textContent,
+  }));
+  check('Escape fecha a linha aberta antes de largar o pais',
+    abertas === 1 && depoisDeFechar.abertas === 0 && depoisDeFechar.titulo === paisAntes,
+    JSON.stringify(depoisDeFechar));
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(500);
+  check('o Escape seguinte limpa a selecao',
+    depoisDeFechar.titulo !== await page.evaluate(() => document.querySelector('#panel-title')?.textContent));
+
+  /* The timeline is a date picker: one tab stop, arrows to walk it. The cells
+     are rebuilt on every change, so focus has to be put back deliberately. */
+  const roving = await page.evaluate(() => {
+    const cells = [...document.querySelectorAll('.tl-day')];
+    return { total: cells.length, naOrdem: cells.filter((c) => c.tabIndex === 0).length,
+      eOSelecionado: cells.find((c) => c.tabIndex === 0)?.classList.contains('is-selected') };
+  });
+  check('a timeline custa um unico tab stop', roving.naOrdem === 1, `${roving.naOrdem} de ${roving.total}`);
+  check('o tab stop e o dia selecionado', roving.eOSelecionado === true);
+
+  await page.locator('.tl-day[tabindex="0"]').focus();
+  const tlAntes = await page.evaluate(() => document.activeElement?.dataset.day);
+  await page.keyboard.press('ArrowRight');
+  await page.waitForTimeout(700);
+  const tlDepois = await page.evaluate(() => ({
+    dia: document.activeElement?.dataset.day,
+    naTimeline: !!document.activeElement?.closest('#tl-track'),
+    selecionado: document.activeElement?.classList.contains('is-selected'),
+  }));
+  check('a seta anda na timeline e o foco fica nela',
+    tlDepois.naTimeline && tlDepois.selecionado && tlDepois.dia !== tlAntes, JSON.stringify(tlDepois));
+
+  /* Exactly one day per press: the page-level shortcut must not fire too. */
+  const dias = await page.evaluate(() => [...document.querySelectorAll('.tl-day')].map((c) => c.dataset.day));
+  check('anda exatamente um dia por tecla',
+    dias.indexOf(tlDepois.dia) - dias.indexOf(tlAntes) === 1,
+    `${tlAntes} -> ${tlDepois.dia}`);
+
+  await page.close();
+}
+
 /* ================================================ 4. FUNDAMENTOS ======= */
 console.log('\n=== UI: os fundamentos sobrevivem a densidade ===');
 {
@@ -295,6 +400,45 @@ for (const [nome, w, h] of [['desktop', 1920, 1080], ['laptop', 1440, 900], ['ta
   check(`${nome} ${w}x${h}: sem overflow horizontal`, !m.overflowX);
   check(`${nome} ${w}x${h}: filtros alcancaveis`, filtrosAlcancaveis && m.filtros === 4);
   check(`${nome} ${w}x${h}: sem erro de JS`, errors.length === 0, errors[0]?.slice(0, 50));
+
+  /* Where the rail is a sheet over the globe it behaves like a dialog, and a
+     dialog that opens without taking the keyboard leaves it on the button
+     underneath. The sheet animates, and `visibility` animates with it, so the
+     focus lands a few frames after the click rather than on it. */
+  if (!m.railNaTela && m.botaoVisivel) {
+    await page.locator('#filters-toggle').click();
+    await page.waitForTimeout(900);
+    const dentro = await page.evaluate(() => {
+      const rail = document.querySelector('#rail-left');
+      return { foco: rail.contains(document.activeElement), aberto: rail.classList.contains('is-open') };
+    });
+    check(`${nome} ${w}x${h}: abrir os filtros leva o foco para dentro`,
+      dentro.aberto && dentro.foco, JSON.stringify(dentro));
+
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(600);
+    check(`${nome} ${w}x${h}: Escape fecha e devolve o foco ao botao`,
+      await page.evaluate(() => document.activeElement?.id === 'filters-toggle'
+        && document.querySelector('#filters-toggle').getAttribute('aria-expanded') === 'false'));
+  }
+
+  await page.close();
+}
+
+/* ============================================== 5. SEM ANIMACAO ======== */
+console.log('\n=== UX: com prefers-reduced-motion ===');
+{
+  /* The sheet still has to hand over the keyboard when nothing animates. The
+     transition is 1ms here and the rail fires unrelated transitionend events
+     of its own, so waiting on those missed the real one and the focus never
+     moved -- a bug that only existed in this mode. */
+  const { page, errors } = await open(900, 800, 'America/Sao_Paulo', 'reduce');
+  await page.locator('#filters-toggle').click();
+  await page.waitForTimeout(900);
+  check('o foco entra no painel de filtros sem transicao',
+    await page.evaluate(() => document.querySelector('#rail-left').contains(document.activeElement)),
+    await page.evaluate(() => document.activeElement?.id || String(document.activeElement?.className).slice(0, 24)));
+  check('sem erro de JS', errors.length === 0, errors[0]?.slice(0, 60));
   await page.close();
 }
 

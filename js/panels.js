@@ -176,6 +176,9 @@ export function renderTimeline() {
   today.setHours(0, 0, 0, 0);
 
   const busiest = Math.max(1, ...days.map((day) => day.total));
+  // Asked before the strip is torn down, because afterwards the focused cell
+  // is gone and the answer is always no.
+  const focusWasInTimeline = host.contains(document.activeElement);
   host.replaceChildren();
 
   let lastMonth = null;
@@ -184,10 +187,16 @@ export function renderTimeline() {
     const isToday = day.date.getTime() === today.getTime();
     const weekday = day.date.getDay();
 
+    const isSelected = day.key === state.selectedDay;
+
     const cell = document.createElement('button');
     cell.type = 'button';
     cell.className = 'tl-day';
-    cell.classList.toggle('is-selected', day.key === state.selectedDay);
+    cell.classList.toggle('is-selected', isSelected);
+    // The blue border says "this day" to anyone looking at it. A screen reader
+    // was handed twenty-nine identical buttons with no way to tell which one
+    // the list below belongs to; aria-current is the same fact, said out loud.
+    if (isSelected) cell.setAttribute('aria-current', 'date');
     cell.classList.toggle('is-today', isToday);
     cell.classList.toggle('is-past', day.date < today);
     cell.classList.toggle('is-weekend', weekday === 0 || weekday === 6);
@@ -222,9 +231,15 @@ export function renderTimeline() {
     }
 
     cell.append(month, dow, num, bar);
+    cell.dataset.day = day.key;
     cell.addEventListener('click', () => selectDay(day.key));
     host.append(cell);
   }
+
+  // Twenty-nine days used to be twenty-nine tab stops. One stop gets you into
+  // the strip; the arrows move along it from there, which is how a date picker
+  // behaves and what a keyboard user tries first.
+  rollTabStops(host);
 
   // Centre the selected day by moving this track only. scrollIntoView would
   // also scroll any scrollable ancestor, which is how the left rail ended up
@@ -236,6 +251,70 @@ export function renderTimeline() {
       behavior: 'smooth',
     });
   }
+
+  // These cells are rebuilt on every day change, so the element the user was
+  // standing on no longer exists by the time the new strip is in place --
+  // pressing → sent focus back to the top of the document. Put it back on the
+  // day that is now selected, but only if it was in here to begin with.
+  if (focusWasInTimeline) selected?.focus({ preventScroll: true });
+}
+
+/**
+ * Is the keypress addressed to the view rather than to a control?
+ *
+ * True when nothing is focused (the page itself, after a click on the globe),
+ * when the globe has it, or when focus is somewhere in the event list -- the
+ * places where "the day" and "the selection" are what the user is looking at.
+ * A focused button, chip or flag is a control, and its keys are its own.
+ */
+function viewHasFocus(target) {
+  if (!target || target === document.body || target === document.documentElement) return true;
+  if (target.id === 'stage') return true;
+  return Boolean(target.closest?.('#event-list'));
+}
+
+/**
+ * One tab stop for the whole strip, arrows to move within it.
+ *
+ * The pattern is the roving tabindex from the ARIA authoring practices: every
+ * cell but the current one is taken out of the tab order, so Tab treats the
+ * timeline as a single control and the arrows do the walking inside it.
+ */
+function rollTabStops(host) {
+  const cells = [...host.children];
+  if (!cells.length) return;
+  const current = cells.find((cell) => cell.classList.contains('is-selected')) ?? cells[0];
+  for (const cell of cells) cell.tabIndex = cell === current ? 0 : -1;
+}
+
+/** Move along the timeline with the arrow keys, selecting as we go. */
+function bindTimelineKeys() {
+  const host = $('tl-track');
+  if (!host) return;
+
+  host.addEventListener('keydown', (event) => {
+    const cell = event.target.closest?.('.tl-day');
+    if (!cell) return;
+
+    const cells = [...host.children];
+    const index = cells.indexOf(cell);
+    let next = null;
+
+    if (event.key === 'ArrowLeft') next = cells[index - 1];
+    else if (event.key === 'ArrowRight') next = cells[index + 1];
+    else if (event.key === 'Home') next = cells[0];
+    else if (event.key === 'End') next = cells.at(-1);
+    else return;
+
+    // Stop even at the ends of the strip: the page-level shortcut would
+    // otherwise pick the same keypress up and step the day anyway, which is
+    // the bug this pattern exists to avoid.
+    event.preventDefault();
+    if (!next) return;
+
+    // selectDay rebuilds the strip; renderTimeline restores focus from here.
+    selectDay(next.dataset.day);
+  });
 }
 
 /* ------------------------------------------------------------- event list */
@@ -689,6 +768,8 @@ export function bindPanelControls() {
     download(buildCsv(events, { surpriseOf }), 'text/csv;charset=utf-8', exportName('csv'));
   });
 
+  bindTimelineKeys();
+
   $('tl-prev').addEventListener('click', () => stepDay(-1));
   $('tl-next').addEventListener('click', () => stepDay(1));
   $('tl-today').addEventListener('click', () => {
@@ -700,10 +781,33 @@ export function bindPanelControls() {
   });
 
   document.addEventListener('keydown', (event) => {
-    if (event.target.matches('input, textarea')) return;
-    if (event.key === 'ArrowLeft') stepDay(-1);
-    if (event.key === 'ArrowRight') stepDay(1);
-    if (event.key === 'Escape') clearSelection();
+    if (event.defaultPrevented) return;
+    if (event.altKey || event.ctrlKey || event.metaKey) return;
+
+    // Both shortcuts below are bindings for the view, not for whatever has
+    // focus. Listening on document meant they fired while the user was tabbing
+    // through the filters: arrowing off the language buttons changed the day,
+    // and Escape on a category chip threw away the country panel they were
+    // reading. So they only apply where nothing in particular is focused, or
+    // where the focused thing is the globe or the event list -- the places the
+    // day and the selection are the subject. The timeline has its own arrow
+    // handling (bindTimelineKeys) and marks those events handled.
+    if (!viewHasFocus(event.target)) return;
+
+    if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+      event.preventDefault();
+      stepDay(event.key === 'ArrowLeft' ? -1 : 1);
+      return;
+    }
+
+    // Escape undoes the innermost thing that is open: an expanded event row
+    // sits inside the country selection, so it goes first, and the country
+    // only goes once there is no row open. The filter sheet is handled in
+    // bindFilterPanel, which marks the event handled before this runs.
+    if (event.key === 'Escape') {
+      if (state.openEventId) toggleEvent(state.openEventId);
+      else if (state.selectedCountry) clearSelection();
+    }
   });
 }
 

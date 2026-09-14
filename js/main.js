@@ -261,6 +261,31 @@ function applyLanguage() {
 }
 
 /**
+ * Put the keyboard inside a panel that is still animating open.
+ *
+ * `visibility` is part of the slide-in transition, and an element that is
+ * still hidden refuses focus without complaining -- so focusing on the click
+ * did nothing at all and the keyboard stayed on the button behind the sheet.
+ * Waiting for `transitionend` is not the fix either: with reduced motion the
+ * transition is 1ms and the element fires spurious ones (scrollbar-color,
+ * among others) before it is visible, so the real one is easy to miss.
+ * Checking the thing we actually care about, for a few frames, works in both.
+ */
+function focusWhenVisible(panel, tries = 20) {
+  const target = panel.querySelector('button');
+  if (!target) return;
+  const attempt = () => {
+    if (!panel.classList.contains('is-open')) return;   // closed again meanwhile
+    if (getComputedStyle(panel).visibility === 'visible') {
+      target.focus();
+      if (panel.contains(document.activeElement)) return;
+    }
+    if (tries-- > 0) requestAnimationFrame(attempt);
+  };
+  requestAnimationFrame(attempt);
+}
+
+/**
  * The filters panel on narrow screens.
  *
  * Below 1040px the left rail slides over the globe instead of sharing space
@@ -278,18 +303,23 @@ function bindFilterPanel() {
   const setOpen = (open) => {
     rail.classList.toggle('is-open', open);
     toggle.setAttribute('aria-expanded', String(open));
-    if (open) rail.querySelector('button')?.focus();
+    if (open) focusWhenVisible(rail);
     else if (document.activeElement && rail.contains(document.activeElement)) toggle.focus();
   };
 
   toggle.addEventListener('click', () => setOpen(!isOpen()));
 
+  // Capture, and preventDefault rather than stopPropagation: both handlers sit
+  // on document, and stopPropagation does not reach a listener already
+  // registered on the same node -- bindPanelControls runs first, so Escape
+  // closed the sheet and cleared the country selection in one press. Marking
+  // the event handled is what the panel handler actually checks.
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && isOpen()) {
-      event.stopPropagation();
+      event.preventDefault();
       setOpen(false);
     }
-  });
+  }, true);
 
   document.addEventListener('pointerdown', (event) => {
     if (!isOpen()) return;
