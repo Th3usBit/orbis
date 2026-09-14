@@ -128,7 +128,12 @@
     </div>
   </header>
 
-  <aside class="rail rail-left" id="rail-left">
+  <!-- A nav rather than a bare aside: everything in here is a control that
+       changes what the globe and the list show. A screen reader listing the
+       page's regions was reading "complementary, complementary" with no way to
+       tell the filters from the events. -->
+  <nav class="rail rail-left" id="rail-left" data-i18n-aria="aria_filters_region"
+       aria-label="Filters and sources">
 
     <section class="card card-next" id="next-card">
       <h2 class="card-title" data-i18n="next_high">Next high-impact release</h2>
@@ -168,9 +173,13 @@
       <p class="meta-line" id="generated-line"></p>
     </section>
 
-  </aside>
+  </nav>
 
-  <aside class="rail rail-right">
+  <!-- The event list is what the page is for, so it is the main landmark: the
+       skip link now lands inside a region a screen reader can name and jump
+       back to, instead of an unnamed aside. -->
+  <main class="rail rail-right" data-i18n-aria="aria_events_region"
+        aria-label="Events">
     <header class="panel-head">
       <div>
         <h2 class="panel-title" id="panel-title">—</h2>
@@ -190,15 +199,15 @@
         <button type="button" class="panel-pill" id="panel-reset" hidden data-i18n="clear">clear</button>
       </div>
     </header>
-    <div class="panel-body" id="event-list" tabindex="0"></div>
-  </aside>
+    <div class="panel-body" id="event-list"></div>
+  </main>
 
-  <footer class="timeline">
+  <nav class="timeline" data-i18n-aria="aria_timeline_region" aria-label="Day timeline">
     <button type="button" class="tl-step" id="tl-prev" data-i18n-aria="aria_prev_day" aria-label="Previous day">‹</button>
     <div class="tl-track" id="tl-track"></div>
     <button type="button" class="tl-step" id="tl-next" data-i18n-aria="aria_next_day" aria-label="Next day">›</button>
     <button type="button" class="tl-today" id="tl-today" data-i18n="today">today</button>
-  </footer>
+  </nav>
 
   <div class="hint" id="hint">
     <span data-i18n="hint">Drag to rotate · scroll to zoom · click a marker · ← → change day</span>

@@ -56,6 +56,10 @@ export const UI = {
     aria_lang: 'Language',
     aria_prev_day: 'Previous day',
     aria_next_day: 'Next day',
+    aria_filters_region: 'Filters and sources',
+    aria_events_region: 'Events',
+    aria_timeline_region: 'Day timeline',
+    aria_event_list: 'Event list — use the up and down arrows to move between events',
 
     impact_3: 'High',
     impact_2: 'Medium',
@@ -150,6 +154,10 @@ export const UI = {
     aria_lang: 'Idioma',
     aria_prev_day: 'Dia anterior',
     aria_next_day: 'Próximo dia',
+    aria_filters_region: 'Filtros e fontes',
+    aria_events_region: 'Eventos',
+    aria_timeline_region: 'Linha do tempo',
+    aria_event_list: 'Lista de eventos — use as setas para cima e para baixo para percorrer',
 
     impact_3: 'Alto',
     impact_2: 'Médio',
@@ -244,6 +252,10 @@ export const UI = {
     aria_lang: 'Idioma',
     aria_prev_day: 'Día anterior',
     aria_next_day: 'Día siguiente',
+    aria_filters_region: 'Filtros y fuentes',
+    aria_events_region: 'Eventos',
+    aria_timeline_region: 'Línea de tiempo',
+    aria_event_list: 'Lista de eventos — usa las flechas arriba y abajo para recorrerla',
 
     impact_3: 'Alto',
     impact_2: 'Medio',

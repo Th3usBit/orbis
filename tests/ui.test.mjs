@@ -318,6 +318,227 @@ console.log('\n=== UX: o teclado ===');
   await page.close();
 }
 
+/* ================================================ 3b. A LISTA =========== */
+console.log('\n=== UX: a lista de eventos ===');
+{
+  const { page, errors } = await open();
+
+  /* Go to the busiest day in the window: a one-event list asserts nothing
+     about navigating a list, and which day is busy changes with the data. */
+  const total = await page.evaluate(async () => {
+    const cells = [...document.querySelectorAll('.tl-day')];
+    let melhor = null;
+    let maior = -1;
+    for (const c of cells) {
+      c.click();
+      await new Promise((r) => { setTimeout(r, 70); });
+      const n = parseInt(document.getElementById('panel-sub').textContent, 10) || 0;
+      if (n > maior) { maior = n; melhor = c; }
+    }
+    melhor.click();
+    await new Promise((r) => { setTimeout(r, 250); });
+    return maior;
+  });
+
+  /* The whole day was being built on every render -- 226 rows on the busiest
+     day to show the twelve that fit -- which is most of what a day change
+     used to cost. The rows all still arrive; only *when* changed. */
+  const inicial = await page.evaluate(() => document.querySelectorAll('#event-list .event').length);
+  check('nao desenha o dia inteiro de uma vez', inicial < total || total <= 24,
+    `${inicial} de ${total} linhas`);
+  check('o subtitulo continua contando o dia inteiro', total > inicial || total <= 24,
+    `${total} eventos`);
+
+  /* ...and everything is reachable by scrolling, so Ctrl+F and the scrollbar
+     still mean what they did. */
+  await page.evaluate(async () => {
+    const el = document.getElementById('event-list');
+    for (let i = 0; i < 60; i += 1) {
+      el.scrollTop = el.scrollHeight;
+      await new Promise((r) => { setTimeout(r, 50); });
+    }
+  });
+  const aposRolar = await page.evaluate(() => document.querySelectorAll('#event-list .event').length);
+  check('rolando ate o fim chegam todas as linhas', aposRolar === total,
+    `${aposRolar} de ${total}`);
+
+  await page.close();
+}
+
+{
+  const { page, errors } = await open();
+  const total = await page.evaluate(async () => {
+    const cells = [...document.querySelectorAll('.tl-day')];
+    let melhor = null;
+    let maior = -1;
+    for (const c of cells) {
+      c.click();
+      await new Promise((r) => { setTimeout(r, 70); });
+      const n = parseInt(document.getElementById('panel-sub').textContent, 10) || 0;
+      if (n > maior) { maior = n; melhor = c; }
+    }
+    melhor.click();
+    await new Promise((r) => { setTimeout(r, 250); });
+    return maior;
+  });
+
+  /* The roving tabindex, at the scale that made it necessary: a busy day was
+     one tab stop per event, so Tab could not get past the panel at all. */
+  const stops = await page.evaluate(() => ({
+    naLista: [...document.querySelectorAll('#event-list .event')].filter((e) => e.tabIndex === 0).length,
+    container: document.getElementById('event-list').tabIndex,
+  }));
+  check('a lista inteira e um unico ponto de tabulacao', stops.naLista === 1, `${stops.naLista} stops`);
+  /* The container carried tabindex="0" for the skip link; with a roving stop
+     on the rows it would be a second stop in front of them. */
+  check('o container da lista nao e um ponto de tabulacao a mais',
+    stops.container === -1, `tabIndex=${stops.container}`);
+
+  await page.evaluate(() => { document.activeElement?.blur(); document.body.focus(); });
+  let dentro = false;
+  let tabs = 0;
+  let saiu = false;
+  for (let i = 0; i < 45; i += 1) {
+    await page.keyboard.press('Tab');
+    const na = await page.evaluate(() => !!document.activeElement.closest?.('#event-list'));
+    if (na && !dentro) { dentro = true; tabs = 0; continue; }
+    if (dentro) { tabs += 1; if (!na) { saiu = true; break; } }
+  }
+  check('um Tab basta para sair da lista', saiu && tabs === 1, `${tabs} tabs`);
+
+  /* Arrows walk the rows; moving must not open anything, or reading down a
+     list of 226 would expand 226 detail panels on the way past. */
+  await page.evaluate(() => {
+    const r = document.querySelector('#event-list .event');
+    r.tabIndex = 0;
+    r.focus();
+  });
+  const primeiro = await page.evaluate(() => document.activeElement.dataset.eventId);
+  await page.keyboard.press('ArrowDown');
+  await page.waitForTimeout(200);
+  const segundo = await page.evaluate(() => ({
+    id: document.activeElement.dataset.eventId,
+    naLista: !!document.activeElement.closest('#event-list'),
+    abertas: document.querySelectorAll('.event-detail').length,
+  }));
+  check('a seta anda na lista e o foco fica nela',
+    segundo.naLista && (total <= 1 || segundo.id !== primeiro), JSON.stringify(segundo));
+  check('andar na lista nao abre o detalhe', segundo.abertas === 0, `${segundo.abertas} abertas`);
+
+  await page.keyboard.press('ArrowUp');
+  await page.waitForTimeout(200);
+  check('a seta contraria volta',
+    await page.evaluate(() => document.activeElement.dataset.eventId) === primeiro);
+
+  /* Enter is the button's own key and still opens -- and the row keeps focus,
+     because the list is rebuilt underneath it when the detail appears. */
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(400);
+  const aberto = await page.evaluate(() => ({
+    detalhes: document.querySelectorAll('.event-detail').length,
+    expandido: document.activeElement.getAttribute('aria-expanded'),
+    aindaNaLista: !!document.activeElement.closest('#event-list'),
+  }));
+  check('Enter abre o detalhe da linha', aberto.detalhes === 1, `${aberto.detalhes}`);
+  check('aria-expanded acompanha a linha aberta', aberto.expandido === 'true', String(aberto.expandido));
+  check('a linha mantem o foco depois de abrir', aberto.aindaNaLista);
+
+  /* End means the end of the day, not the end of what happens to be drawn. */
+  await page.keyboard.press('Escape');
+  await page.waitForTimeout(300);
+  await page.keyboard.press('End');
+  await page.waitForTimeout(600);
+  const fim = await page.evaluate(() => {
+    const linhas = [...document.querySelectorAll('#event-list .event')];
+    return { desenhadas: linhas.length, naUltima: document.activeElement === linhas.at(-1) };
+  });
+  check('End desenha o resto do dia e vai para a ultima linha',
+    fim.desenhadas === total && fim.naUltima, `${fim.desenhadas} de ${total}, naUltima=${fim.naUltima}`);
+
+  /* ← → stay the day shortcut even from inside the list: a row is not a day. */
+  await page.evaluate(() => { document.querySelector('#event-list .event').focus(); });
+  const diaAntes = await page.evaluate(() => document.querySelector('#panel-title')?.textContent);
+  await page.keyboard.press('ArrowLeft');
+  await page.waitForTimeout(600);
+  check('a seta horizontal ainda muda o dia a partir da lista',
+    diaAntes !== await page.evaluate(() => document.querySelector('#panel-title')?.textContent));
+
+  check('sem erro de JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+{
+  /* An empty list is not a listbox, and the arrows must not throw on one. */
+  const { page, errors } = await open();
+  for (let i = 0; i < 3; i += 1) {
+    await page.locator('.filter-row').nth(i).click();
+    await page.waitForTimeout(160);
+  }
+  const vazio = await page.evaluate(() => {
+    const h = document.getElementById('event-list');
+    return { estadoVazio: !!h.querySelector('.panel-empty'), role: h.getAttribute('role') };
+  });
+  check('a lista vazia mostra o estado vazio', vazio.estadoVazio);
+  check('a lista vazia deixa de ser um listbox', vazio.role === null, String(vazio.role));
+
+  await page.evaluate(() => document.getElementById('event-list').focus());
+  await page.keyboard.press('ArrowDown');
+  await page.keyboard.press('End');
+  await page.waitForTimeout(250);
+
+  await page.locator('#panel-reset').click();
+  await page.waitForTimeout(600);
+  const voltou = await page.evaluate(() => {
+    const h = document.getElementById('event-list');
+    return {
+      role: h.getAttribute('role'),
+      linhas: h.querySelectorAll('.event').length,
+      stops: [...h.querySelectorAll('.event')].filter((e) => e.tabIndex === 0).length,
+    };
+  });
+  check('limpar devolve a lista, o listbox e um unico stop',
+    voltou.role === 'listbox' && voltou.linhas > 0 && voltou.stops === 1, JSON.stringify(voltou));
+  check('sem erro de JS na lista vazia', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* =============================================== 3c. REGIOES =========== */
+console.log('\n=== A11Y: as regioes da pagina ===');
+{
+  /* A screen reader listing the regions was reading "complementary,
+     complementary" -- nothing said which one held the filters and which one
+     held the events the page exists to show. */
+  const { page } = await open();
+  const R = await page.evaluate(() => ({
+    temMain: !!document.querySelector('main'),
+    nomeDoMain: document.querySelector('main')?.getAttribute('aria-label') || null,
+    navs: [...document.querySelectorAll('nav')].map((n) => n.getAttribute('aria-label')),
+    semNome: [...document.querySelectorAll('main, nav')].filter((e) => !e.getAttribute('aria-label')).length,
+    listaRole: document.getElementById('event-list').getAttribute('role'),
+    listaNome: document.getElementById('event-list').getAttribute('aria-label'),
+  }));
+  check('a lista de eventos e o <main> da pagina', R.temMain);
+  check('o <main> tem nome', Boolean(R.nomeDoMain), String(R.nomeDoMain));
+  check('os filtros e a timeline sao navegacoes nomeadas',
+    R.navs.length === 2 && R.navs.every(Boolean), JSON.stringify(R.navs));
+  /* Counting the unnamed only means something once the regions exist: with no
+     <main> and no <nav> at all, "none unnamed" was trivially true. */
+  check('nenhuma regiao fica sem nome', R.semNome === 0 && R.navs.length === 2,
+    `${R.semNome} sem nome de ${R.navs.length + (R.temMain ? 1 : 0)} regioes`);
+  check('a lista se anuncia como lista', R.listaRole === 'listbox', String(R.listaRole));
+  check('a lista diz como percorre-la', Boolean(R.listaNome), String(R.listaNome).slice(0, 44));
+
+  /* The skip link exists to reach the list; it now lands on a row, which is
+     both a place to start reading and what the arrows then move. */
+  await page.evaluate(() => { document.activeElement?.blur(); document.body.focus(); });
+  await page.keyboard.press('Tab');
+  await page.keyboard.press('Enter');
+  await page.waitForTimeout(500);
+  check('o atalho de pular cai numa linha da lista',
+    await page.evaluate(() => !!document.activeElement.closest?.('#event-list')));
+  await page.close();
+}
+
 /* ================================================ 4. FUNDAMENTOS ======= */
 console.log('\n=== UI: os fundamentos sobrevivem a densidade ===');
 {
