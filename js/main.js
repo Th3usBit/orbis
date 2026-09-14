@@ -14,6 +14,7 @@ import {
 } from './panels.js';
 import { applyStaticStrings, initLang, setLang, t } from './i18n.js';
 import { parseView, writeView } from './url.js';
+import { ensureFlagFont } from './flags.js';
 
 const REFRESH_MS = 5 * 60 * 1000;
 
@@ -23,6 +24,11 @@ let nextEvent = null;
 async function boot() {
   initLang();
   applyLanguage();
+
+  // Before anything draws a flag. On a platform that composes them this is a
+  // canvas measurement and nothing else; where it does not, the font is in
+  // flight while the calendar is still being fetched.
+  ensureFlagFont();
 
   try {
     await loadData();

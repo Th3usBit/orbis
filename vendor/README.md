@@ -20,16 +20,52 @@ collector remains standard library only.
 | `three/OrbitControls.js` | r171 | MIT | `examples/jsm/controls/` |
 | `fonts/inter-*.woff2` | v4 | SIL OFL 1.1 | [Inter](https://github.com/rsms/inter) |
 | `fonts/jetbrains-mono-*.woff2` | v2 | SIL OFL 1.1 | [JetBrains Mono](https://github.com/JetBrains/JetBrainsMono) |
+| `fonts/noto-color-emoji-flags.woff2` | v2.051 | SIL OFL 1.1 | [Noto Emoji](https://github.com/googlefonts/noto-emoji) |
 
 Licence texts sit next to the files they cover: `three/LICENSE`,
-`fonts/LICENSE-Inter.txt`, `fonts/LICENSE-JetBrainsMono.txt`. The MIT licence in
-the repository root covers orbis itself, not these.
+`fonts/LICENSE-Inter.txt`, `fonts/LICENSE-JetBrainsMono.txt`,
+`fonts/LICENSE-NotoColorEmoji.txt`. The MIT licence in the repository root
+covers orbis itself, not these.
 
 Both font families are *variable* fonts, so one file per subset carries every
 weight the design uses — four `@font-face` blocks instead of the fourteen
 Google's stylesheet would otherwise hand out for these families. Only `latin` and `latin-ext` are
 vendored, which is what English, Portuguese and Spanish need; add the subset
 file and a `@font-face` block in `fonts.css` if you add a language that does not.
+
+## The flag font
+
+`noto-color-emoji-flags.woff2` exists because Windows has no country flags.
+Segoe UI Emoji has shipped none since Windows 8 -- a Microsoft decision that
+has not been reverted, and one Chromium has said it will not work around -- so
+Chrome and Edge there render `flagOf('JP')` as the two letters "JP" rather than
+🇯🇵. Firefox is unaffected on every platform because it bundles its own Twemoji.
+
+It is the only vendored file the page does not always load. `js/flags.js`
+measures whether the platform joins a pair of regional indicators and injects
+the `@font-face` only when it does not, so the 205KB is paid by the browsers
+that need it and by nobody else. The `unicode-range` is `U+1F1E6-1F1FF`, so
+even there the font is consulted for flags and for no other character.
+
+Twemoji was the other candidate and was rejected on licensing: its artwork is
+CC-BY 4.0, which requires visible attribution, and `NOTICE.md` explains why
+this project has none. Noto Color Emoji is SIL OFL 1.1, the same licence as
+the two text families already here.
+
+### Rebuilding it
+
+Google serves the flag slice already separated by `unicode-range`, but with the
+full 17k-glyph `glyf` table attached -- 693KB. Subsetting it down to the 84
+countries in `data/countries.json` needs two passes, because the ordinary
+closure walks from the 26 regional indicators out to all 259 flags, and from
+each flag into its COLRv1 layers:
+
+1. prune the GSUB ligature table to the pairs this project can draw;
+2. walk the COLRv1 paint graph from those and keep only the glyphs it reaches.
+
+That yields 205KB. It does not go lower: the 6,034 glyphs that survive are the
+vector layers the flags are actually made of, not orphans. `fontTools` and
+`brotli` are needed for the rebuild; neither is a dependency of the site.
 
 ## Updating three.js
 

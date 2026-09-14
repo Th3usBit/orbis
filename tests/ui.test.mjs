@@ -684,6 +684,91 @@ console.log('\n=== UI: os tres idiomas ===');
   await page.close();
 }
 
+/* ================================================= 9. BANDEIRAS ======== */
+console.log('\n=== UI: as bandeiras dos paises ===');
+{
+  /* `flagOf` emits two regional indicators and leaves the font to join them
+     into one flag. Windows never does: Segoe UI Emoji has carried no country
+     flags since Windows 8, so Chrome and Edge there draw "JP Japão" and
+     "CN" on the countdown card. Reproduced on Chrome 151 and Edge 153;
+     Firefox is unaffected anywhere because it ships its own Twemoji.
+
+     A composed flag is one glyph -- as wide as a single indicator, ratio 1.0.
+     An uncomposed pair is two glyphs, ratio 1.94. Measured identical at 13px
+     and 40px in both browsers, so 1.5 sits far from either case. */
+  const { page, errors } = await open();
+
+  const medir = () => page.evaluate(() => {
+    const pilha = getComputedStyle(document.body).fontFamily;
+    const c = document.createElement('canvas').getContext('2d');
+    const w = (t) => { c.font = `40px ${pilha}`; return c.measureText(t).width; };
+    const par = w('\u{1F1E7}\u{1F1F7}');
+    const um = w('\u{1F1E7}');
+    return {
+      razao: um ? +(par / um).toFixed(3) : null,
+      marcador: document.documentElement.dataset.flagFont || null,
+      pilha: pilha.slice(0, 40),
+    };
+  });
+
+  const m = await medir();
+  /* The assertion is the same on every platform, which is the point: either
+     the system composed the flags or the font was fetched and did it. */
+  check('as bandeiras aparecem como um glifo, nao duas letras',
+    m.razao !== null && m.razao < 1.5, `razao ${m.razao}, fonte ${m.marcador ?? 'nativa'}`);
+
+  /* The font is 205KB and most visitors already have flags, so it must not be
+     fetched where it changes nothing. Whichever branch this runner takes, the
+     other half of the rule still holds. */
+  const pedidos = [];
+  page.on('request', (r) => {
+    if (r.url().includes('noto-color-emoji')) pedidos.push(r.url());
+  });
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#shell:not([hidden])');
+  await page.waitForTimeout(2500);
+  const depois = await medir();
+
+  if (depois.marcador === 'loaded') {
+    check('a fonte so e pedida quando a plataforma precisa dela',
+      pedidos.length === 1, `${pedidos.length} pedidos com a fonte carregada`);
+    check('a fonte entra na frente da pilha, sem substitui-la',
+      depois.pilha.includes('orbis flags') && depois.pilha.includes('Inter'), depois.pilha);
+  } else {
+    check('nenhum byte de fonte onde as bandeiras ja funcionam',
+      pedidos.length === 0, `${pedidos.length} pedidos sem precisar`);
+    check('a pilha de fontes fica intacta',
+      !depois.pilha.includes('orbis flags'), depois.pilha);
+  }
+
+  check('sem erro de JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+{
+  /* The detection measures text on a 2D canvas. Where that is unavailable --
+     a hardened browser, a privacy extension that poisons canvas -- the page
+     must carry on with whatever the platform draws, not fail to boot. */
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const erros = [];
+  page.on('pageerror', (e) => erros.push(String(e).slice(0, 160)));
+  await page.addInitScript(() => {
+    const original = HTMLCanvasElement.prototype.getContext;
+    HTMLCanvasElement.prototype.getContext = function (tipo, ...resto) {
+      if (tipo === '2d') throw new Error('canvas 2d indisponivel');
+      return original.call(this, tipo, ...resto);
+    };
+  });
+  await page.goto(URL, { waitUntil: 'load' });
+  const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: 40000 })
+    .then(() => true).catch(() => false);
+  await page.waitForTimeout(1500);
+  const linhas = await page.evaluate(() => document.querySelectorAll('#event-list .event').length);
+  check('a pagina sobe sem canvas 2d', subiu && linhas > 0, `subiu=${subiu}, ${linhas} linhas`);
+  check('e sem erro de JS', erros.length === 0, erros.join(' | '));
+  await page.close();
+}
+
 console.log(`\n${passes} passaram, ${fails} falharam\n`);
 await browser.close();
 shutdown();

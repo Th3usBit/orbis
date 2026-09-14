@@ -15,10 +15,12 @@ works with no network. Each licence text sits beside the files it covers.
 | [three.js](https://threejs.org) | r171 | MIT | [`vendor/three/LICENSE`](vendor/three/LICENSE) |
 | [Inter](https://rsms.me/inter/) | v4 | SIL OFL 1.1 | [`vendor/fonts/LICENSE-Inter.txt`](vendor/fonts/LICENSE-Inter.txt) |
 | [JetBrains Mono](https://www.jetbrains.com/lp/mono/) | v2 | SIL OFL 1.1 | [`vendor/fonts/LICENSE-JetBrainsMono.txt`](vendor/fonts/LICENSE-JetBrainsMono.txt) |
+| [Noto Color Emoji](https://github.com/googlefonts/noto-emoji) | v2.051 | SIL OFL 1.1 | [`vendor/fonts/LICENSE-NotoColorEmoji.txt`](vendor/fonts/LICENSE-NotoColorEmoji.txt) |
 
 Copyright © 2010-2024 three.js authors.
 Copyright © 2016 The Inter Project Authors.
 Copyright © 2020 The JetBrains Mono Project Authors.
+Copyright © 2013 Google LLC (Noto Color Emoji).
 
 **On the OFL and the fonts.** The SIL Open Font License permits bundling and
 redistribution, including in a commercial product, provided the font files keep
@@ -26,7 +28,17 @@ their licence and are not sold on their own. It also reserves the font names:
 if you *modify* Inter or JetBrains Mono, the derivative may not be distributed
 under those names. orbis ships both unmodified, subset to `latin` and
 `latin-ext`, which the licence allows and which does not trigger the name
-reservation.
+reservation. Noto Color Emoji is subset the same way -- to the country flags
+in `data/countries.json` -- and is likewise unmodified otherwise; it is
+referenced from an injected `@font-face` under the family name `orbis flags`,
+which is a CSS alias rather than a renamed font file, so the reserved name is
+untouched.
+
+**Why not Twemoji.** It is the usual answer for missing flags on Windows and
+was rejected here: the Twemoji artwork is CC-BY 4.0, which does require the
+visible credit the paragraph below says this project owes nobody. Using it
+would have meant putting an attribution line in the interface. Noto is OFL,
+so the notice travelling with the file is enough.
 
 **On three.js.** MIT. The notice above, the file in `vendor/three/` and the
 `@license` header the build carries all satisfy it.

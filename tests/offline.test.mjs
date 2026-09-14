@@ -113,7 +113,16 @@ while (queue.length) {
     continue;
   }
 
-  const specifiers = [...source.matchAll(/\bfrom\s*['"]([^'"]+)['"]/g)].map((m) => m[1]);
+  /* Comments are stripped first. `from "..."` also occurs in ordinary prose,
+     and a docblock explaining where a font came from was enough to fail this
+     check with an "unmapped import" that does not exist. Crude but sufficient:
+     the specifiers that matter are all real code, and none of them sits behind
+     a // or inside a block comment. */
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, ' ')
+    .replace(/(^|[^:"'`\\])\/\/[^\n]*/g, '$1 ');
+
+  const specifiers = [...code.matchAll(/\bfrom\s*['"]([^'"]+)['"]/g)].map((m) => m[1]);
 
   for (const spec of specifiers) {
     if (/^https?:/.test(spec)) { offenders.push(`${rel} -> ${spec}`); continue; }
@@ -147,6 +156,10 @@ for (const file of [
   'vendor/three/LICENSE',
   'vendor/fonts/LICENSE-Inter.txt',
   'vendor/fonts/LICENSE-JetBrainsMono.txt',
+  'vendor/fonts/LICENSE-NotoColorEmoji.txt',
+  // Loaded only where the platform has no country flags (js/flags.js), which
+  // is why it is not in fonts.css and the check above would never see it.
+  'vendor/fonts/noto-color-emoji-flags.woff2',
 ]) {
   check(`present: ${file}`, await exists(file));
 }
@@ -165,7 +178,7 @@ console.log('\n=== licensing ===');
    with it. These fail if a vendored file loses its licence, or if the running
    interface stops crediting what it ships. */
 const notice = await read('NOTICE.md');
-for (const name of ['three.js', 'Inter', 'JetBrains Mono']) {
+for (const name of ['three.js', 'Inter', 'JetBrains Mono', 'Noto Color Emoji']) {
   check(`NOTICE.md accounts for ${name}`, notice.includes(name));
 }
 check('NOTICE.md points at the licence texts',
@@ -178,10 +191,13 @@ check('three.js licence is intact',
 for (const [file, holder] of [
   ['vendor/fonts/LICENSE-Inter.txt', 'Inter Project Authors'],
   ['vendor/fonts/LICENSE-JetBrainsMono.txt', 'JetBrains Mono Project Authors'],
+  // Google ships the bare OFL text with no copyright line of its own; the
+  // holder is recorded in the font binary and in NOTICE.md instead.
+  ['vendor/fonts/LICENSE-NotoColorEmoji.txt', null],
 ]) {
   const text = await read(file);
-  check(`${file} carries the OFL and its copyright`,
-    text.includes('SIL Open Font License') && text.includes(holder));
+  check(`${file} carries the OFL${holder ? ' and its copyright' : ''}`,
+    text.includes('SIL Open Font License') && (!holder || text.includes(holder)));
 }
 
 /* What MIT and the OFL actually require is that the notice travel with the
@@ -192,6 +208,7 @@ for (const [dir, licence] of [
   ['vendor/three', 'vendor/three/LICENSE'],
   ['vendor/fonts', 'vendor/fonts/LICENSE-Inter.txt'],
   ['vendor/fonts', 'vendor/fonts/LICENSE-JetBrainsMono.txt'],
+  ['vendor/fonts', 'vendor/fonts/LICENSE-NotoColorEmoji.txt'],
 ]) {
   check(`${licence} ships beside the files in ${dir}`, await exists(licence));
 }
