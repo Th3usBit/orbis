@@ -52,12 +52,83 @@ export const state = {
   },
 };
 
+/* ------------------------------------------------------------- persistence */
+
+const FILTERS_KEY = 'orbis.filters';
+
+/**
+ * Remember the filters between visits -- here, not in the address bar.
+ *
+ * The URL deliberately carries the day and the country and nothing else: a
+ * link is a place in the calendar, and one arriving with somebody else's eight
+ * switched-off categories opens on a screen the sender never saw. That
+ * argument is about *sharing*, though, and it was being used to justify losing
+ * the filters on a plain reload of your own tab -- which nobody chose. Local
+ * storage settles both: the state survives F5 and a closed laptop, and it
+ * still cannot travel in a link.
+ *
+ * Every read is defensive. This is user-writable storage that outlives the
+ * code: it can hold a set written by a version that had different impact
+ * levels, a hand-edited string, or nothing at all. A bad value is dropped for
+ * the default rather than trusted, exactly as `js/url.js` treats a stale `?d=`.
+ */
+function readFilters() {
+  let raw = null;
+  try {
+    raw = localStorage.getItem(FILTERS_KEY);
+  } catch { /* private browsing: this session simply starts unfiltered */ }
+  if (!raw) return;
+
+  let saved;
+  try {
+    saved = JSON.parse(raw);
+  } catch {
+    return;                                   // not ours, or truncated
+  }
+  if (!saved || typeof saved !== 'object') return;
+
+  // Intersected with what this build actually knows, so a level or region that
+  // has since been renamed cannot switch a dimension off for good.
+  const restore = (dimension, allowed) => {
+    const values = saved[dimension];
+    if (!Array.isArray(values)) return;
+    const valid = values.filter((value) => allowed.includes(value));
+    // An empty impact or region set is a view of nothing, which toggleFilter
+    // refuses to produce and which must not arrive by the back door either.
+    if (!valid.length) return;
+    state.filters[dimension] = new Set(valid);
+  };
+
+  restore('impact', IMPACTS);
+  restore('region', REGIONS);
+
+  // Categories are open-ended -- the classifier invents them -- so there is no
+  // list to check against, and an empty set is the legitimate "all of them".
+  if (Array.isArray(saved.category)) {
+    state.filters.category = new Set(saved.category.filter((c) => typeof c === 'string'));
+  }
+}
+
+/** Write the current filters back. Never throws: this is a convenience. */
+function writeFilters() {
+  try {
+    localStorage.setItem(FILTERS_KEY, JSON.stringify({
+      impact: [...state.filters.impact],
+      region: [...state.filters.region],
+      category: [...state.filters.category],
+    }));
+  } catch { /* quota, private browsing: the filters still work for this session */ }
+}
+
 export function subscribe(fn) {
   listeners.add(fn);
   return () => listeners.delete(fn);
 }
 
 export function emit(reason = 'change') {
+  // Saved here rather than in each of the four call sites that change a
+  // filter, so a fifth one cannot forget to.
+  if (reason === 'filter') writeFilters();
   for (const fn of listeners) fn(reason);
 }
 
@@ -91,6 +162,10 @@ export async function loadData() {
   state.events = (calendar.events || [])
     .map(decorate)
     .filter((event) => event.country in state.countries);
+
+  // After the events exist, because dayList() below is filtered by these, and
+  // before the first render, so nothing is drawn twice.
+  readFilters();
 
   if (!state.selectedDay) {
     // Land on today when it is inside the window, otherwise on the first day.

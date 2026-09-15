@@ -9,6 +9,11 @@
   --bg-deep:       #030408;
 
   --panel:         rgba(10, 14, 23, 0.74);
+  /* The fade that marks "there is more below" in a scrolling panel. Built from
+     the panel fill so it reads as the surface dimming into an edge rather than
+     as a separate band laid on top of it. */
+  --panel-fade-from: rgba(10, 14, 23, 0);
+  --panel-fade-to:   rgba(8, 11, 19, 0.92);
   --panel-solid:   #0a0e17;
   --line:          rgba(125, 155, 195, 0.15);
   --line-strong:   rgba(125, 155, 195, 0.28);
@@ -491,21 +496,57 @@ body::after {
  * luck rather than fit. Shrinking is the honest behaviour: the card gives back
  * what it must, and the column only scrolls once every card has.
  *
- * min-height:0 is what makes that shrink actually happen. A column flex item
- * defaults to min-height:auto, which refuses to go below its content height,
- * so flex-shrink:1 alone is inert -- the card stays at its natural 205px and
- * the rail overflows anyway. Zeroing the floor lets it settle at 198px, which
- * is where the five cards fit. */
+ * min-height had to come off auto for that shrink to happen at all. A column
+ * flex item defaults to min-height:auto, which refuses to go below its content
+ * height, so flex-shrink:1 alone is inert -- the card stays at its natural
+ * 205px and the rail overflows anyway. Lowering the floor lets it settle at
+ * 198px, which is where the five cards fit.
+ *
+ * But the floor was 0, and a floor of zero is not a floor. Giving back seven
+ * pixels at 1440x900 is the case this was written for; at 1366x768 -- the most
+ * common laptop screen there is -- the same rule handed the card 66px for 135px
+ * of chips, and because the overflow is visible they carried on drawing over
+ * the sources list below. Measured in all five engines: four chips outside the
+ * card, 57px of them on top of the next group. Firefox differed only in how
+ * far.
+ *
+ * The floor is min-content, computed rather than chosen, and it resolves the
+ * tension the two paragraphs above are each half of. Measured at 1366 wide:
+ * at 900px tall the five groups are 2px over the rail, which is the case this
+ * rule exists for and which shrinking absorbs; at 768px they are 134px over,
+ * which no amount of shrinking can absorb honestly -- that is the column's to
+ * scroll. A zero floor tried to absorb it anyway, and since the overflow is
+ * visible the chips carried on drawing over the sources list below: four of
+ * fourteen outside the card, 57px of them on top of the next group, in all
+ * five engines. Firefox differed only in how far.
+ *
+ * It has to be min-content specifically. A percentage resolves against the
+ * rail's height rather than the card's content, so `min-height: 80%` grew this
+ * card to 465px and pushed the rail 399px past itself -- the opposite failure.
+ * A pixel value is a guess about how many rows fourteen chips wrap into, and
+ * the classifier changes that number whenever it learns a category: 132px was
+ * already 36px short the day it was tried. min-content asks the chips.
+ *
+ * What still gives the 2px back at 1440x900 is the gap under the last chip
+ * row: it is part of min-content, it carries no information, and the rule
+ * below lets it collapse when the column is short. That is worth about 13px --
+ * enough for the 2px the five groups are over there, and nowhere near the
+ * 134px they are over at 1366x768, which is the point. The second case
+ * scrolls. */
 .card-scroll {
   flex: 0 1 auto;
-  min-height: 0;
+  min-height: min-content;
   overflow: visible;
   padding-bottom: 0;
 }
 
 /* On the chips rather than on the card, so the last row has room beneath it
-   without the card reserving a strip that reads as a gap above the divider. */
-.card-scroll .chips { padding-bottom: 13px; }
+   without the card reserving a strip that reads as a gap above the divider.
+   6px, not 13: the five groups were 7px over the rail at 1440x900, and this
+   gap is the only part of the column that carries no information -- cheaper to
+   give back than to let the categories shrink past their own chips, which is
+   what the zero floor above used to do. */
+.card-scroll .chips { padding-bottom: 6px; }
 
 /* --- Next high-impact ----------------------------------------------------- */
 
@@ -1040,14 +1081,69 @@ body::after {
    Scrollbars
    -------------------------------------------------------------------------- */
 
-/* The rails scroll, and at 24% the thumb was invisible enough that the panel
-   looked clipped rather than scrollable. Visible enough to find, quiet enough
-   to ignore. */
-.rail-left, .panel-body { scrollbar-width: thin; scrollbar-color: rgba(125, 155, 195, 0.5) transparent; }
+/* The rails scroll, and the bar is the only thing that says so.
+ *
+ * `scrollbar-width: thin` was doing the opposite of what it reads like. It is
+ * the standard property, so where both are understood it wins over the
+ * ::-webkit- rules below -- and "thin" in Blink is 2px, not the 7px those
+ * rules ask for. Measured at 1366x768, where the rail has 139px below the
+ * fold: a 2px thumb on a transparent track, against a translucent panel over a
+ * lit globe. The categories and the whole sources group were off-screen with
+ * nothing on the page admitting it. The event list was worse -- an overlay bar
+ * of literal zero width with 991px hidden behind it.
+ *
+ * Styling the bar is only half an answer, and on many machines it is none of
+ * it. Where the OS is set to overlay scrollbars -- the default on macOS, and
+ * increasingly common on Windows -- the bar takes no layout width at all and
+ * the ::-webkit- rules are ignored outright: measured here, a probe div with
+ * an explicit `::-webkit-scrollbar { width: 9px }` still reported 0px. The
+ * bar fades in while the wheel is moving and is gone a second later, so it
+ * cannot be what tells a reader there is more below. See the fade under this
+ * block, which does not depend on the scrollbar existing. */
+@supports (-moz-appearance: none) {
+  .rail-left, .panel-body {
+    scrollbar-width: thin;
+    scrollbar-color: rgba(125, 155, 195, 0.55) transparent;
+  }
+}
+
+/* The fold, said by the panel itself.
+ *
+ * A gradient pinned to the bottom of the scroller, drawn only while there is
+ * something below it. `background-attachment: local` is what makes that
+ * conditional without a scroll listener: a local layer scrolls with the
+ * content, so the one anchored to the bottom edge sits off-screen until the
+ * content is taller than the box, and slides away again as the reader reaches
+ * the end. The pair of `linear-gradient(transparent, ...)` layers above it are
+ * the cover: `scroll` layers stay pinned to the viewport of the element, and
+ * painting the panel colour over the first and last few pixels hides the fade
+ * exactly when there is nothing to hide.
+ *
+ * The rail carries the panel's own translucent fill, so the fade is drawn in
+ * that colour rather than in a flat one -- over a lit globe a solid strip
+ * would read as a band rather than as an edge. */
+.rail-left, .panel-body {
+  background-image:
+    linear-gradient(to top, var(--panel-fade-to), var(--panel-fade-from) 26px);
+  background-repeat: no-repeat;
+  background-attachment: local;
+  background-position: bottom;
+  background-size: 100% 26px;
+}
 .rail-left::-webkit-scrollbar,
-.panel-body::-webkit-scrollbar { width: 7px; }
+.panel-body::-webkit-scrollbar { width: 9px; }
+/* Opaque enough to read against a lit globe, which a 45% thumb was not. */
 .rail-left::-webkit-scrollbar-thumb,
-.panel-body::-webkit-scrollbar-thumb { background: rgba(125, 155, 195, 0.45); border-radius: 4px; }
+.panel-body::-webkit-scrollbar-thumb {
+  background: rgba(125, 155, 195, 0.62);
+  border-radius: 5px;
+  /* Inset by the border-box trick so the thumb reads as a rounded bar with air
+     around it rather than a stripe welded to the panel edge. */
+  border: 2px solid transparent;
+  background-clip: content-box;
+}
+.rail-left::-webkit-scrollbar-thumb:hover,
+.panel-body::-webkit-scrollbar-thumb:hover { background: rgba(125, 155, 195, 0.85); background-clip: content-box; }
 .rail-left::-webkit-scrollbar-track,
 .panel-body::-webkit-scrollbar-track { background: transparent; }
 

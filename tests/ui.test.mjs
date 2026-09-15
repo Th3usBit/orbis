@@ -513,10 +513,42 @@ console.log('\n=== UX: a lista de eventos ===');
 {
   /* An empty list is not a listbox, and the arrows must not throw on one. */
   const { page, errors } = await open();
-  for (let i = 0; i < 3; i += 1) {
-    await page.locator('.filter-row').nth(i).click();
-    await page.waitForTimeout(160);
-  }
+  /* Empty the list by crossing the two dimensions, because no single one can
+     be emptied on its own: toggleFilter refuses to let a dimension go blank
+     and switches the last row back on, deliberately -- an empty globe helps
+     nobody. So narrowing impact to one value and region to one value leaves
+     an intersection with nothing in it, which is the state this block is
+     about, and reaches it the way a reader would.
+     Clicking three `.filter-row` by index used to "work" only by accident:
+     that selector also matches the region rows, impact has a fourth value
+     (Feriado, impact 0) that no click could ever clear, and the list stayed
+     non-empty the moment a holiday fell inside the window. Each toggle also
+     calls replaceChildren() on its group, so the buttons are rebuilt between
+     clicks and an index stops meaning what it meant -- hence clicking
+     whatever is still pressed rather than a fixed position. */
+  const linhasAgora = () =>
+    page.locator('#event-list .event').count();
+
+  /* Switch rows off one at a time and stop the moment the list is empty,
+     rather than assuming some particular pair ends up empty. Which one does
+     depends on the day's data -- regionOf() falls back to 'mea' for any
+     unmapped country, so the region that happens to be left last can be empty
+     this morning and hold a holiday tomorrow. Stopping on the measured state
+     keeps the block about the empty list itself. */
+  const esvaziar = async (grupo) => {
+    for (let guarda = 0; guarda < 12; guarda += 1) {
+      if (await linhasAgora() === 0) return true;
+      const ligados = page.locator(`${grupo} > [aria-pressed="true"]`);
+      if (await ligados.count() <= 1) return false;
+      await ligados.first().click();
+      await page.waitForTimeout(160);
+    }
+    return await linhasAgora() === 0;
+  };
+  await esvaziar('#filter-impact');
+  const ficouVazia = await esvaziar('#filter-region');
+  check('as duas dimensoes juntas conseguem esvaziar a lista', ficouVazia,
+    `${await linhasAgora()} linhas restantes`);
   const vazio = await page.evaluate(() => {
     const h = document.getElementById('event-list');
     return { estadoVazio: !!h.querySelector('.panel-empty'), role: h.getAttribute('role') };
@@ -639,6 +671,16 @@ console.log('\n=== UI: os fundamentos sobrevivem a densidade ===');
     const rail = document.querySelector('.rail-left');
     return { transborda: rail.scrollHeight - rail.clientHeight, cards: rail.querySelectorAll('.card').length };
   });
+  const diag = await wide.evaluate(() => {
+    const r = document.querySelector('.rail-left');
+    return { clientH: r.clientHeight, scrollH: r.scrollHeight,
+      vh: innerHeight, dpr: devicePixelRatio, zoom: visualViewport?.scale,
+      filhos: [...r.children].map((e) => +e.getBoundingClientRect().height.toFixed(1)),
+      chips: r.querySelectorAll('.chip').length,
+      fonte: getComputedStyle(document.body).fontFamily.slice(0, 40),
+      lang: document.documentElement.lang };
+  });
+  console.log('    DIAG', JSON.stringify(diag));
   check('os cinco cards cabem em 1440x900 sem rolagem',
     fits.transborda <= 0 && fits.cards === 5, `transborda ${fits.transborda}px, ${fits.cards} cards`);
   await wide.close();
@@ -1050,6 +1092,156 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   const salto = (emSegundos(voltando) - emSegundos(aindaEscondido) + DIA) % DIA;
   check('e volta a bater assim que a aba reaparece', salto >= 3,
     `${aindaEscondido} -> ${voltando} (${salto}s)`);
+  await page.close();
+}
+
+/* ============================================ 10. O PAINEL QUE ROLA ===== */
+console.log('\n=== UI: o painel diz quando ha mais abaixo ===');
+{
+  /* The left rail is 139px taller than its box at 1366x768 -- the commonest
+     laptop screen there is -- and the scrollbar cannot be what says so. Where
+     the OS draws overlay scrollbars the bar takes no layout width at all and
+     ::-webkit-scrollbar is ignored outright (measured: a probe div with an
+     explicit 9px rule still reported 0px), and it fades out a second after the
+     wheel stops. The fade at the fold is drawn by the panel itself. */
+  const { page, errors } = await open(1366, 768);
+
+  const estado = (sel) => page.evaluate((s) => {
+    const el = document.querySelector(s);
+    const cs = getComputedStyle(el);
+    return {
+      corta: el.scrollHeight - el.clientHeight,
+      gradiente: /linear-gradient/.test(cs.backgroundImage),
+      // `local` is the whole mechanism: the layer scrolls with the content, so
+      // it sits off-screen until there is something below the fold and slides
+      // away again at the end. No scroll listener, no class to keep in sync.
+      ancoragem: cs.backgroundAttachment,
+    };
+  }, sel);
+
+  const rail = await estado('#rail-left');
+  check('o rail transborda nesta altura', rail.corta > 0, `${rail.corta}px abaixo da dobra`);
+  check('o rail marca a dobra', rail.gradiente && rail.ancoragem.includes('local'),
+    `gradiente ${rail.gradiente}, ancoragem ${rail.ancoragem}`);
+
+  const lista = await estado('#event-list');
+  check('a lista de eventos marca a dobra', lista.gradiente && lista.ancoragem.includes('local'),
+    `gradiente ${lista.gradiente}, ancoragem ${lista.ancoragem}`);
+
+  /* The categories group shrinks to give the column a few pixels back, and
+     min-height:0 let it shrink past its own content: at 1366x768 it was handed
+     66px for 135px of chips and, since the overflow is visible, four of the
+     fourteen carried on drawing 57px down over the sources list. Measured in
+     all five engines. */
+  const chips = await page.evaluate(() => {
+    const grupo = document.querySelector('.card-scroll');
+    const cards = [...document.querySelectorAll('.rail-left .card')];
+    const proximo = cards[cards.indexOf(grupo) + 1];
+    const todas = [...grupo.querySelectorAll('.chip')];
+    const gb = grupo.getBoundingClientRect();
+    const pb = proximo?.getBoundingClientRect();
+    const ultima = todas.at(-1)?.getBoundingClientRect();
+    return {
+      total: todas.length,
+      dentro: todas.filter((c) => c.getBoundingClientRect().bottom <= gb.bottom + 1).length,
+      invade: ultima && pb ? Math.max(0, Math.round(ultima.bottom - pb.top)) : 0,
+    };
+  });
+  check('nenhuma chip escapa do proprio grupo', chips.dentro === chips.total,
+    `${chips.dentro} de ${chips.total} dentro`);
+  check('as chips nao desenham sobre o grupo seguinte', chips.invade === 0, `${chips.invade}px por cima`);
+
+  check('sem erro de JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+/* ============================================= 11. OS FILTROS FICAM ==== */
+console.log('\n=== UX: os filtros sobrevivem a um reload ===');
+{
+  /* The address bar carries the day and the country and deliberately not the
+     filters: a link is a place in the calendar, and one arriving with somebody
+     else's switched-off categories opens on a screen the sender never saw.
+     That argument is about sharing, and it was also costing you your own
+     filters on an ordinary F5. Local storage keeps both: the state survives a
+     reload and still cannot travel in a link. */
+  const { page, errors } = await open();
+
+  await page.locator('#filter-impact button').first().click();
+  await page.waitForTimeout(500);
+  const antes = await page.evaluate(() => ({
+    pressionados: [...document.querySelectorAll('#filter-impact [aria-pressed]')]
+      .map((b) => b.getAttribute('aria-pressed')).join(','),
+    badge: document.getElementById('filters-badge').textContent,
+    url: location.search,
+  }));
+  check('o filtro nao entra na URL',
+    !/impact|region|category/.test(antes.url), antes.url);
+
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#shell:not([hidden])');
+  await page.waitForTimeout(2500);
+  const depois = await page.evaluate(() => ({
+    pressionados: [...document.querySelectorAll('#filter-impact [aria-pressed]')]
+      .map((b) => b.getAttribute('aria-pressed')).join(','),
+    badge: document.getElementById('filters-badge').textContent,
+    escondido: document.getElementById('filters-badge').hidden,
+  }));
+  check('o filtro continua la depois do reload',
+    depois.pressionados === antes.pressionados, `${antes.pressionados} -> ${depois.pressionados}`);
+  check('e o contador no botao concorda',
+    depois.badge === antes.badge && !depois.escondido, `badge ${depois.badge}`);
+
+  /* Clearing is a state too: it has to survive, or the next reload brings back
+     what the reader just dismissed. */
+  await page.locator('#panel-reset').click();
+  await page.waitForTimeout(500);
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForSelector('#shell:not([hidden])');
+  await page.waitForTimeout(2500);
+  const limpo = await page.evaluate(() => ({
+    escondido: document.getElementById('filters-badge').hidden,
+    todos: [...document.querySelectorAll('#filter-impact [aria-pressed]')]
+      .every((b) => b.getAttribute('aria-pressed') === 'true'),
+  }));
+  check('limpar tambem sobrevive', limpo.escondido && limpo.todos, JSON.stringify(limpo));
+
+  check('sem erro de JS', errors.length === 0, errors.join(' | '));
+  await page.close();
+}
+
+{
+  /* localStorage is user-writable and outlives the code that wrote it: it can
+     hold a set from a build with different impact levels, a hand-edited
+     string, or garbage. Every one of these must land on the default view
+     rather than on an empty or broken screen. */
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const erros = [];
+  page.on('pageerror', (e) => erros.push(String(e).slice(0, 160)));
+  await page.goto(URL, { waitUntil: 'load' });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+
+  for (const lixo of [
+    '{"impact":[]}',                              // um set vazio e uma tela vazia
+    '{"impact":"nao-e-um-array"}',
+    'isto nao e json',
+    '{"impact":[99,"x"],"region":["inexistente"]}',
+    '{}',
+  ]) {
+    await page.evaluate((v) => localStorage.setItem('orbis.filters', v), lixo);
+    await page.reload({ waitUntil: 'load' });
+    const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 })
+      .then(() => true).catch(() => false);
+    await page.waitForTimeout(2000);
+    const r = await page.evaluate(() => ({
+      linhas: document.querySelectorAll('#event-list .event').length,
+      impactosLigados: document.querySelectorAll('#filter-impact [aria-pressed="true"]').length,
+    }));
+    check(`sobrevive a ${lixo.slice(0, 30)}`,
+      subiu && r.linhas > 0 && r.impactosLigados > 0, JSON.stringify(r));
+  }
+
+  await page.evaluate(() => localStorage.removeItem('orbis.filters'));
+  check('sem erro de JS com o storage corrompido', erros.length === 0, erros.join(' | '));
   await page.close();
 }
 
