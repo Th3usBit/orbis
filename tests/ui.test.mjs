@@ -73,6 +73,36 @@ process.on('exit', shutdown);
 const browser = await launcher.launch();
 console.log(`
   engine: ${ENGINE}`);
+
+/* The whole suite is about a page whose shell only appears once the globe has
+   a WebGL context, so a machine without one fails every check with the same
+   30s timeout and a stack trace that says nothing about the cause.
+   Headless Linux is exactly that machine for Firefox and WebKit: Chromium
+   ships SwiftShader and falls back to it, the other two do not, so on a CI
+   runner with no GPU they have no WebGL at all.
+   That is a fact about the runner, not about the site -- the same WebKit on a
+   real Mac runs all 98 checks -- so it prints and skips rather than failing,
+   the way a missing Playwright already does. */
+{
+  const page = await browser.newPage();
+  const temGl = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl'));
+  }).catch(() => false);
+  await page.close();
+
+  if (!temGl) {
+    console.log(`
+  SKIP  ${ENGINE} has no WebGL context on this machine, and every check here
+        needs the globe to boot. On headless Linux only Chromium falls back to
+        software rendering; Firefox and WebKit need a real GPU or an X server.
+`);
+    await browser.close();
+    shutdown();
+    process.exit(0);
+  }
+}
+
 let fails = 0, passes = 0;
 
 const check = (name, ok, detail = '') => {
@@ -788,9 +818,37 @@ console.log('\n=== UI: as bandeiras dos paises ===');
    for quebrada. Tudo aqui e medido contando chamadas de desenho reais na GL:
    e o unico numero que nao depende da velocidade da maquina que roda o teste,
    ao contrario de fps ou de tempo de quadro, que variam demais num runner
-   compartilhado para servirem de limite. */
+   compartilhado para servirem de limite.
+
+   O relogio e fixado antes de abrir a pagina, e isso nao e detalhe: os aneis
+   pulsam nos eventos de impacto >= 2 que caem na proxima hora, e um pulso vivo
+   mantem o loop acordado de propósito. Medir repouso na hora corrente torna o
+   resultado uma funcao de que horas sao -- a mesma build leu 63 draw calls de
+   manha e 540 a tarde, as duas corretas. A ancora e calculada a partir do
+   proprio calendario, e nao escrita a mao, porque o CI recoleta os dados a
+   cada run e uma data fixa envelheceria na primeira semana. */
 {
+  /* Uma hora dentro da janela publicada em que nada de impacto >= 2 acontece
+     na hora seguinte -- o unico estado em que "repouso" quer dizer repouso. */
+  const quieto = await (async () => {
+    const dados = await fetch(`${URL}data/calendar.json`).then((r) => r.json());
+    const horas = dados.events
+      .filter((e) => (e.impact ?? 0) >= 2)
+      .map((e) => Date.parse(e.ts))
+      .sort((a, b) => a - b);
+    const inicio = Date.parse(dados.window.from);
+    const UMA_HORA = 3600_000;
+    /* Antes do primeiro evento de impacto ja e uma janela silenciosa, e e a
+       que existe em qualquer dataset. Senao, o primeiro vao maior que 2h. */
+    if (horas.length === 0 || horas[0] - inicio > 2 * UMA_HORA) return inicio + UMA_HORA;
+    for (let i = 0; i < horas.length - 1; i++) {
+      if (horas[i + 1] - horas[i] > 3 * UMA_HORA) return horas[i] + UMA_HORA;
+    }
+    return inicio + UMA_HORA;
+  })();
+
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.clock.setSystemTime(new Date(quieto));
   await page.goto(URL, { waitUntil: 'networkidle' });
   await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
 
@@ -824,7 +882,15 @@ console.log('\n=== UI: as bandeiras dos paises ===');
     `${repouso} draw calls em 3s`);
 
   /* O outro lado do mesmo contrato: dormir e facil, acordar e o que importa.
-     Um globo que nao responde ao arrasto tambem passaria no teste acima. */
+     Um globo que nao responde ao arrasto tambem passaria no teste acima.
+
+     O piso mede se o loop acordou, nao quanto trabalho ele fez. A cena gasta
+     ~7 draw calls por quadro, entao qualquer coisa acima de 20 ja e mais de um
+     punhado de quadros desenhados durante o arrasto, e um globo que ficou
+     dormindo le zero -- que e a regressao que este check existe para pegar.
+     Um piso alto demais mede a GPU do runner e nao o codigo: com GL por
+     software o WebKit do CI fez 72 onde uma maquina com placa faz 540, e as
+     duas estao igualmente corretas. */
   await page.mouse.move(700, 400);
   await page.mouse.down();
   await page.evaluate(() => { window.__draws = 0; });
@@ -834,7 +900,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   }
   await page.mouse.up();
   const arrasto = await page.evaluate(() => window.__draws);
-  check('arrastar o globo acorda o loop', arrasto > 100, `${arrasto} draw calls`);
+  check('arrastar o globo acorda o loop', arrasto > 20, `${arrasto} draw calls`);
 
   /* Trocar de dia move o sol de verdade, e o terminador precisa animar ate a
      nova posicao -- exatamente o caso que um setDate com limiar mal escolhido
@@ -844,7 +910,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   await page.evaluate(() => { window.__draws = 0; });
   await page.waitForTimeout(1500);
   const scrub = await page.evaluate(() => window.__draws);
-  check('trocar de dia redesenha o terminador', scrub > 50, `${scrub} draw calls`);
+  check('trocar de dia redesenha o terminador', scrub > 20, `${scrub} draw calls`);
 
   /* E volta a dormir depois. */
   await page.waitForTimeout(3500);
