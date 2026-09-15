@@ -22,6 +22,18 @@ DEFAULT_PORT = 8080
 
 
 class Handler(http.server.SimpleHTTPRequestHandler):
+    # HTTP/1.0 -- the default -- closes the socket after every single file, and
+    # the page asks for dozens. On Windows each closed socket then sits in
+    # TIME_WAIT for minutes holding an ephemeral port, so a long test run drains
+    # the pool and the next connect() is refused outright. A refused <script> is
+    # the worst kind of failure here: nothing errors, the module simply never
+    # runs, #shell stays hidden, and the suite waits its full timeout for
+    # something that already failed. Keep-alive reuses one connection for the
+    # whole page instead. SimpleHTTPRequestHandler already sends an accurate
+    # Content-Length on every response, which is what 1.1 requires to know where
+    # each body ends.
+    protocol_version = "HTTP/1.1"
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=ROOT, **kwargs)
 
@@ -79,8 +91,15 @@ def main() -> int:
     port = free_port(args.port)
     url = f"http://127.0.0.1:{port}/"
 
-    socketserver.TCPServer.allow_reuse_address = True
-    with socketserver.TCPServer(("127.0.0.1", port), Handler) as server:
+    # A kept-alive connection stays open between requests, so a single-threaded
+    # server would let one idle tab block every other request. A thread per
+    # connection is the standard answer and costs nothing at this scale.
+    # daemon_threads lets Ctrl+C exit without waiting on open connections.
+    class Server(socketserver.ThreadingTCPServer):
+        allow_reuse_address = True
+        daemon_threads = True
+
+    with Server(("127.0.0.1", port), Handler) as server:
         print(f"\n  orbis is live at  {url}")
         print("  press Ctrl+C to stop\n")
         if not args.no_browser:
