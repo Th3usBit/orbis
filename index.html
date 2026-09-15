@@ -49,8 +49,15 @@
 <div id="shell" class="shell" hidden>
 
   <!-- Thirty-four tab stops separated the keyboard from the event list. This is
-       the way past the filters for anyone who did not come to change them. -->
-  <a class="skip-link" href="#event-list" data-i18n="skip_to_events">Skip to the event list</a>
+       the way past the filters for anyone who did not come to change them.
+
+       tabindex="0" is not redundant on an anchor here. WebKit leaves links out
+       of the tab order unless the user has turned on "Press Tab to highlight
+       each item", so on a stock Safari the first Tab jumped straight to the
+       language buttons and this link -- which exists for the keyboard and
+       nothing else -- could never be reached. An explicit tabindex puts it
+       back in sequence on every engine. -->
+  <a class="skip-link" href="#event-list" tabindex="0" data-i18n="skip_to_events">Skip to the event list</a>
 
   <header class="topbar">
     <div class="brand">

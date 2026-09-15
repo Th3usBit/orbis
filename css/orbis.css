@@ -479,9 +479,26 @@ body::after {
  *
  * flex-grow stays 0 for the same reason the others grow: this is the tallest
  * group, so giving it a share of the slack would pad the one card that is
- * already full at the cost of the ones that are not. */
+ * already full at the cost of the ones that are not.
+ *
+ * flex-shrink, though, stays at its default 1. `flex: none` set it to 0 as
+ * well, which is a different claim and not the one above: it said this card
+ * may not give a pixel back even when the column is over its height. At
+ * 1440x900 that overflowed the rail by 7px in Blink and WebKit -- a scrollbar
+ * for seven pixels -- while the four flexible cards were each still being
+ * handed 5-9px of slack, because flexbox shares out free space before this
+ * card's own overflow is accounted for. Firefox cleared it by 0.3px, which is
+ * luck rather than fit. Shrinking is the honest behaviour: the card gives back
+ * what it must, and the column only scrolls once every card has.
+ *
+ * min-height:0 is what makes that shrink actually happen. A column flex item
+ * defaults to min-height:auto, which refuses to go below its content height,
+ * so flex-shrink:1 alone is inert -- the card stays at its natural 205px and
+ * the rail overflows anyway. Zeroing the floor lets it settle at 198px, which
+ * is where the five cards fit. */
 .card-scroll {
-  flex: none;
+  flex: 0 1 auto;
+  min-height: 0;
   overflow: visible;
   padding-bottom: 0;
 }

@@ -336,13 +336,22 @@ export async function createGlobe(canvas, handlers = {}) {
   let flight = null;
   let intro = { t: 0, from: 5.6, to: 3.05 };
   let running = true;
+  let contextLost = false;
+  let pulseCount = 0;
+
+  /* Frames the loop still owes even though nothing is animating. A change that
+     only alters uniforms or geometry -- a new marker set, a highlight, a
+     resize -- needs the scene drawn once more to become visible, and on-demand
+     rendering would otherwise leave it invisible until the next drag. */
+  let owedFrames = 2;
+  const invalidate = (n = 2) => { owedFrames = Math.max(owedFrames, n); };
 
   controls.addEventListener('start', () => {
     lastInteraction = performance.now();
     canvas.classList.add('is-dragging');
     intro = null;
   });
-  controls.addEventListener('change', () => { lastInteraction = performance.now(); });
+  controls.addEventListener('change', () => { lastInteraction = performance.now(); invalidate(); });
   controls.addEventListener('end', () => canvas.classList.remove('is-dragging'));
 
   /* --- marker rebuild ----------------------------------------------------- */
@@ -383,6 +392,7 @@ export async function createGlobe(canvas, handlers = {}) {
     heads.instanceMatrix.needsUpdate = true;
     if (markers.instanceColor) markers.instanceColor.needsUpdate = true;
     if (heads.instanceColor) heads.instanceColor.needsUpdate = true;
+    invalidate();
   }
 
   function markerHeight(marker) {
@@ -415,6 +425,10 @@ export async function createGlobe(canvas, handlers = {}) {
     positions.needsUpdate = true;
     phases.needsUpdate = true;
     colors.needsUpdate = true;
+    // A live pulse animates on uTime, so its presence alone keeps the loop
+    // awake; going from some to none has to draw once more to clear them.
+    pulseCount = take.length;
+    invalidate();
   }
 
   /* --- camera ------------------------------------------------------------- */
@@ -434,12 +448,31 @@ export async function createGlobe(canvas, handlers = {}) {
     };
   }
 
+  /* Below this the sun has not moved far enough to change a pixel. One value
+     for both the "is it worth waking the loop" test and the "has it arrived"
+     test: two different epsilons leave a band where the sun is never settled
+     but nothing ever asks for the frame that would settle it, and the loop
+     spins at full rate on a scene that is already correct. */
+  const SUN_EPSILON = 1e-3;
+
   function setDate(date) {
-    sun.target = sunDirection(date);
+    const next = sunDirection(date);
+    // Only wake the loop when the sun has actually moved somewhere worth
+    // drawing. This is called once a second by the clock ticker, and a second
+    // of real time turns the earth by 0.004 degrees -- far below a pixel. An
+    // unconditional invalidate() here renewed the frame debt faster than the
+    // loop could spend it, which pinned the globe at 60fps forever and made
+    // on-demand rendering a no-op. Scrubbing to another day is a real jump and
+    // clears this threshold easily.
+    const moved = sun.target.manhattanDistanceTo(next) > SUN_EPSILON;
+    sun.target = next;
+    if (moved) invalidate();
   }
 
   function setHighlight(code) {
+    if (code === highlighted) return;
     highlighted = code;
+    invalidate();
   }
 
   /* --- pointer ------------------------------------------------------------ */
@@ -522,6 +555,7 @@ export async function createGlobe(canvas, handlers = {}) {
     camera.updateProjectionMatrix();
     dotUniforms.uPixelRatio.value = renderer.getPixelRatio();
     pulseUniforms.uPixelRatio.value = renderer.getPixelRatio();
+    invalidate();
   }
 
   new ResizeObserver(resize).observe(canvas);
@@ -531,9 +565,15 @@ export async function createGlobe(canvas, handlers = {}) {
 
   const clock = new THREE.Clock();
 
+  /* rAF handle, so the loop can be stopped and restarted without ever having
+     two of itself scheduled -- a second frame() would double every animation
+     rate and the fault would look like a timing bug anywhere but here. */
+  let pending = 0;
+
   function frame() {
-    if (!running) return;
-    requestAnimationFrame(frame);
+    pending = 0;
+    if (!running || contextLost || document.hidden) return;
+    pending = requestAnimationFrame(frame);
 
     const delta = Math.min(clock.getDelta(), 0.1);
     const now = performance.now();
@@ -576,9 +616,70 @@ export async function createGlobe(canvas, handlers = {}) {
 
     // OrbitControls derives the camera from its own spherical state on every
     // update, so it has to stand down while a flight is positioning it.
-    if (!flight) controls.update();
-    renderer.render(scene, camera);
+    // `update()` returns true while damping is still easing the camera, which
+    // is one of the things that keeps the loop awake.
+    const damping = flight ? false : controls.update();
+
+    // Draw only when something would actually look different. A globe at rest
+    // -- no spin, no pulse, no damping, sun settled -- produced an identical
+    // frame 60 times a second, and each one is a full pass over the ocean,
+    // atmosphere and 12k land dots. On a laptop that is the fan coming on to
+    // show a still image. Anything that changes the scene calls invalidate()
+    // and the loop picks straight back up.
+    const sunSettled = sun.current.manhattanDistanceTo(sun.target) < SUN_EPSILON;
+    const busy = damping || controls.autoRotate || flight || intro
+      || pulseCount > 0 || !sunSettled;
+
+    if (busy) owedFrames = 1;
+    if (owedFrames > 0) {
+      owedFrames -= 1;
+      renderer.render(scene, camera);
+    }
   }
+
+  /* --- context loss --------------------------------------------------------
+   *
+   * A WebGL context is not guaranteed for the life of the page. A GPU reset
+   * (routine on Windows, where the driver watchdog restarts a hung adapter),
+   * a laptop waking from sleep, or the browser reclaiming memory from a
+   * background tab all take it away, and the canvas then freezes on its last
+   * frame while every later draw silently does nothing.
+   *
+   * Three already handles the half that keeps the context recoverable: its own
+   * listener calls preventDefault() on the loss -- which is what makes the
+   * browser promise a restore at all -- and rebuilds the GPU-side resources
+   * from the objects still in memory when `webglcontextrestored` fires.
+   *
+   * What it does not know about is this module's loop. Left alone, frame()
+   * carries on calling render() into a dead context for the whole outage, and
+   * on the way back the scene is correct but nothing asks for it to be drawn,
+   * because on-demand rendering only draws when something invalidates. These
+   * two listeners are that missing half, and nothing more. */
+
+  canvas.addEventListener('webglcontextlost', (event) => {
+    event.preventDefault();
+    contextLost = true;
+  }, false);
+
+  canvas.addEventListener('webglcontextrestored', () => {
+    contextLost = false;
+    // The restored context starts at the default size and pixel ratio.
+    resize();
+    invalidate();
+    if (running && !pending) frame();
+  }, false);
+
+  /* The tab going away stops the loop outright. requestAnimationFrame is
+     already throttled when hidden, but throttled is not stopped: a background
+     tab kept running the sun lerp and the pulse clock for as long as the page
+     was open. */
+  const onVisibility = () => {
+    if (document.hidden) return;          // frame() bails on its own
+    lastInteraction = performance.now();  // no idle spin the instant we return
+    invalidate();
+    if (running && !contextLost && !pending) frame();
+  };
+  document.addEventListener('visibilitychange', onVisibility);
 
   frame();
 
@@ -596,6 +697,8 @@ export async function createGlobe(canvas, handlers = {}) {
      *  necessary. */
     dispose() {
       running = false;
+      if (pending) cancelAnimationFrame(pending);
+      document.removeEventListener('visibilitychange', onVisibility);
       controls.dispose();
       renderer.dispose();
     },

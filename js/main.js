@@ -200,11 +200,28 @@ function renderClockOffset() {
   node.textContent = t('clock_you', { offset });
 }
 
+/* Every repeating timer, so visibilitychange can stop the lot. */
+const beat = [];
+
 function startTickers() {
   const clock = document.getElementById('clock');
   renderClockOffset();
 
-  setInterval(() => {
+  // Everything below is observation: a clock face, a countdown, a terminator.
+  // None of it can be observed while the tab is in the background, and the
+  // one-second timer was the most expensive of the three — it wrote to the DOM
+  // and pushed a new sun vector into the globe once a second, forever, behind
+  // whatever the reader was actually looking at. Timers in a hidden tab are
+  // clamped, not stopped, so this has to be explicit.
+  const ticker = (fn, ms) => {
+    let id = 0;
+    const start = () => { if (!id) id = setInterval(fn, ms); };
+    const stop = () => { clearInterval(id); id = 0; };
+    beat.push({ start, stop, fn });
+    start();
+  };
+
+  ticker(() => {
     const now = new Date();
     clock.textContent = now.toISOString().slice(11, 19);
     renderCountdown(nextEvent);
@@ -217,14 +234,14 @@ function startTickers() {
   }, 1000);
 
   // Cheap re-derivations that only matter on the scale of a minute.
-  setInterval(() => {
+  ticker(() => {
     refreshNextEvent();
     syncGlobe();
     renderSources();
   }, 60_000);
 
   // Pick up a freshly built calendar.json without a manual reload.
-  setInterval(async () => {
+  ticker(async () => {
     try {
       const before = state.generatedAt;
       await loadData();
@@ -233,10 +250,19 @@ function startTickers() {
   }, REFRESH_MS);
 
   document.addEventListener('visibilitychange', () => {
-    if (!document.hidden) {
-      refreshNextEvent();
-      syncGlobe();
+    if (document.hidden) {
+      for (const timer of beat) timer.stop();
+      return;
     }
+    // Coming back, the screen is as stale as the time spent away. Catch up
+    // once immediately and only then resume the intervals, so the clock is
+    // never a minute behind the moment the tab is looked at again.
+    for (const timer of beat) timer.start();
+    const now = new Date();
+    clock.textContent = now.toISOString().slice(11, 19);
+    refreshNextEvent();
+    syncGlobe();
+    renderSources();
   });
 }
 
