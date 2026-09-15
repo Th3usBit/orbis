@@ -116,6 +116,14 @@ const open = async (w = 1440, h = 900, tz = 'America/Sao_Paulo', reducedMotion =
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL, { waitUntil: 'networkidle' });
   await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  /* The rail is laid out in a webfont that arrives after first paint, and the
+     cards are sized by their text, so every height measured before the swap is
+     a measurement of the fallback font. That is a real 7px of rail overflow
+     appearing and disappearing between runs of the same build, on a layout
+     that is genuinely within its budget once the font lands. Waiting for the
+     fonts rather than for a duration removes the guess: a fixed timeout is a
+     bet on how fast the machine is, and a loaded CI runner loses it. */
+  await page.evaluate(() => document.fonts.ready).catch(() => {});
   await page.waitForTimeout(2400);
   return { page, errors };
 };
@@ -671,16 +679,6 @@ console.log('\n=== UI: os fundamentos sobrevivem a densidade ===');
     const rail = document.querySelector('.rail-left');
     return { transborda: rail.scrollHeight - rail.clientHeight, cards: rail.querySelectorAll('.card').length };
   });
-  const diag = await wide.evaluate(() => {
-    const r = document.querySelector('.rail-left');
-    return { clientH: r.clientHeight, scrollH: r.scrollHeight,
-      vh: innerHeight, dpr: devicePixelRatio, zoom: visualViewport?.scale,
-      filhos: [...r.children].map((e) => +e.getBoundingClientRect().height.toFixed(1)),
-      chips: r.querySelectorAll('.chip').length,
-      fonte: getComputedStyle(document.body).fontFamily.slice(0, 40),
-      lang: document.documentElement.lang };
-  });
-  console.log('    DIAG', JSON.stringify(diag));
   check('os cinco cards cabem em 1440x900 sem rolagem',
     fits.transborda <= 0 && fits.cards === 5, `transborda ${fits.transborda}px, ${fits.cards} cards`);
   await wide.close();
