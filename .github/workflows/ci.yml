@@ -85,21 +85,32 @@ jobs:
         run: node tests/offline.test.mjs .
 
   interface:
-    name: The interface in a real browser
+    name: The interface in ${{ matrix.browser }}
     runs-on: ubuntu-latest
     timeout-minutes: 15
     # The questions this suite asks -- is the text readable, is the control
     # reachable, does the globe get a GL context -- cannot be answered from the
     # stylesheet, and it was running nowhere: 37 checks that only fired if a
     # contributor remembered them by hand. Linux only, because the answers are
-    # about CSS and the DOM rather than about the platform, and one browser is
-    # enough to catch a regression.
+    # about CSS and the DOM rather than about the platform.
+    #
+    # All three engines, though, because "one browser is enough" was wrong and
+    # the first run across the matrix proved it: WebKit leaves links out of the
+    # tab order unless the reader has opted in, so the skip link -- a control
+    # that exists for the keyboard and nothing else -- was unreachable on every
+    # stock Safari, and three a11y checks failed there while Chromium was green.
+    # A shared layout bug showed up the same way. Chromium alone cannot answer a
+    # question about Safari.
     #
     # Playwright stays a CI tool and never enters the repository: no
     # package.json, no lockfile, nothing committed. It is installed under
     # RUNNER_TEMP for this job alone, exactly the way setup-node and
     # setup-python fetch their own tools. The site still needs no package
     # manager.
+    strategy:
+      fail-fast: false
+      matrix:
+        browser: [chromium, firefox, webkit]
     steps:
       - uses: actions/checkout@v4
 
@@ -128,7 +139,7 @@ jobs:
           cd "$RUNNER_TEMP/pw"
           npm init -y >/dev/null
           npm install --no-save playwright@1
-          npx playwright install --with-deps chromium
+          npx playwright install --with-deps ${{ matrix.browser }}
 
       # index.mjs, not index.js: the CommonJS entry resolves but exposes no
       # named `chromium` export, so the suite would skip while looking healthy.
@@ -136,6 +147,7 @@ jobs:
       - name: Check the interface
         env:
           PLAYWRIGHT_PATH: ${{ runner.temp }}/pw/node_modules/playwright/index.mjs
+          ORBIS_BROWSER: ${{ matrix.browser }}
         run: node tests/ui.test.mjs .
 
   oldest-python:

@@ -11,7 +11,18 @@ import { pathToFileURL } from 'node:url';
 /* Playwright is not a dependency of orbis and never will be -- the site runs
    without a package manager. This test is opt-in: it uses whatever Playwright
    the machine already has, and skips cleanly when there is none. */
-let chromium;
+/* Which engine to drive. Chromium by default, so a bare run behaves as it
+   always has; ORBIS_BROWSER picks another. The questions this suite asks are
+   about CSS, the DOM and WebGL, and those are exactly where engines diverge:
+   a globe that renders in Blink can come up blank in WebKit, and only running
+   all three catches it. */
+const ENGINE = process.env.ORBIS_BROWSER ?? 'chromium';
+if (!['chromium', 'firefox', 'webkit'].includes(ENGINE)) {
+  console.error(`Unknown ORBIS_BROWSER "${ENGINE}" - use chromium, firefox or webkit.`);
+  process.exit(2);
+}
+
+let launcher;
 {
   /* Try, in order: a Playwright next to this project, one installed globally,
      and one left behind by `npx playwright`. Any of them is fine; none of them
@@ -31,14 +42,14 @@ let chromium;
 
   for (const name of candidates) {
     try {
-      ({ chromium } = await import(name));
-      if (chromium) break;
+      ({ [ENGINE]: launcher } = await import(name));
+      if (launcher) break;
     } catch { /* try the next one */ }
   }
 
-  if (!chromium) {
+  if (!launcher) {
     console.log('\n  SKIP  Playwright not found. To run this suite:');
-    console.log('        npx playwright@1 install chromium');
+    console.log(`        npx playwright@1 install ${ENGINE}`);
     console.log('        PLAYWRIGHT_PATH=<path to playwright> node tests/ui.test.mjs .\n');
     process.exit(0);
   }
@@ -59,7 +70,39 @@ if (!(await up())) {
 const shutdown = () => { try { server?.kill(); } catch {} };
 process.on('exit', shutdown);
 
-const browser = await chromium.launch();
+const browser = await launcher.launch();
+console.log(`
+  engine: ${ENGINE}`);
+
+/* The whole suite is about a page whose shell only appears once the globe has
+   a WebGL context, so a machine without one fails every check with the same
+   30s timeout and a stack trace that says nothing about the cause.
+   Headless Linux is exactly that machine for Firefox and WebKit: Chromium
+   ships SwiftShader and falls back to it, the other two do not, so on a CI
+   runner with no GPU they have no WebGL at all.
+   That is a fact about the runner, not about the site -- the same WebKit on a
+   real Mac runs all 98 checks -- so it prints and skips rather than failing,
+   the way a missing Playwright already does. */
+{
+  const page = await browser.newPage();
+  const temGl = await page.evaluate(() => {
+    const canvas = document.createElement('canvas');
+    return !!(canvas.getContext('webgl2') ?? canvas.getContext('webgl'));
+  }).catch(() => false);
+  await page.close();
+
+  if (!temGl) {
+    console.log(`
+  SKIP  ${ENGINE} has no WebGL context on this machine, and every check here
+        needs the globe to boot. On headless Linux only Chromium falls back to
+        software rendering; Firefox and WebKit need a real GPU or an X server.
+`);
+    await browser.close();
+    shutdown();
+    process.exit(0);
+  }
+}
+
 let fails = 0, passes = 0;
 
 const check = (name, ok, detail = '') => {
@@ -766,6 +809,228 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   const linhas = await page.evaluate(() => document.querySelectorAll('#event-list .event').length);
   check('a pagina sobe sem canvas 2d', subiu && linhas > 0, `subiu=${subiu}, ${linhas} linhas`);
   check('e sem erro de JS', erros.length === 0, erros.join(' | '));
+  await page.close();
+}
+
+/* ================================ 9. ORCAMENTO DE PERFORMANCE ========= */
+
+/* "Alta performance" so vale como promessa se alguma coisa falhar quando ela
+   for quebrada. Tudo aqui e medido contando chamadas de desenho reais na GL:
+   e o unico numero que nao depende da velocidade da maquina que roda o teste,
+   ao contrario de fps ou de tempo de quadro, que variam demais num runner
+   compartilhado para servirem de limite.
+
+   O relogio e fixado antes de abrir a pagina, e isso nao e detalhe: os aneis
+   pulsam nos eventos de impacto >= 2 que caem na proxima hora, e um pulso vivo
+   mantem o loop acordado de propósito. Medir repouso na hora corrente torna o
+   resultado uma funcao de que horas sao -- a mesma build leu 63 draw calls de
+   manha e 540 a tarde, as duas corretas. A ancora e calculada a partir do
+   proprio calendario, e nao escrita a mao, porque o CI recoleta os dados a
+   cada run e uma data fixa envelheceria na primeira semana. */
+{
+  /* Uma hora dentro da janela publicada em que nada de impacto >= 2 acontece
+     na hora seguinte -- o unico estado em que "repouso" quer dizer repouso. */
+  const quieto = await (async () => {
+    const dados = await fetch(`${URL}data/calendar.json`).then((r) => r.json());
+    const horas = dados.events
+      .filter((e) => (e.impact ?? 0) >= 2)
+      .map((e) => Date.parse(e.ts))
+      .sort((a, b) => a - b);
+    const inicio = Date.parse(dados.window.from);
+    const UMA_HORA = 3600_000;
+    /* Antes do primeiro evento de impacto ja e uma janela silenciosa, e e a
+       que existe em qualquer dataset. Senao, o primeiro vao maior que 2h. */
+    if (horas.length === 0 || horas[0] - inicio > 2 * UMA_HORA) return inicio + UMA_HORA;
+    for (let i = 0; i < horas.length - 1; i++) {
+      if (horas[i + 1] - horas[i] > 3 * UMA_HORA) return horas[i] + UMA_HORA;
+    }
+    return inicio + UMA_HORA;
+  })();
+
+  const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.clock.setSystemTime(new Date(quieto));
+  await page.goto(URL, { waitUntil: 'networkidle' });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+
+  /* A entrada do globo dura ~1.9s e o damping continua depois dela; so vale
+     medir repouso quando tudo isso acabou. */
+  await page.waitForTimeout(9000);
+
+  await page.evaluate(() => {
+    const canvas = document.getElementById('stage');
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    window.__draws = 0;
+    for (const metodo of ['drawElements', 'drawArrays', 'drawElementsInstanced']) {
+      if (!gl[metodo]) continue;
+      const original = gl[metodo].bind(gl);
+      gl[metodo] = (...args) => { window.__draws++; return original(...args); };
+    }
+  });
+
+  const medir = async (ms) => {
+    await page.evaluate(() => { window.__draws = 0; });
+    await page.waitForTimeout(ms);
+    return page.evaluate(() => window.__draws);
+  };
+
+  /* Em repouso o globo desenha um quadro identico ao anterior. A 60fps por 3s
+     seriam ~1260 chamadas (7 por quadro); o teto abaixo e varias vezes o que o
+     render sob demanda produz e ainda bem abaixo de um loop que nunca dorme,
+     entao pega a regressao sem depender da maquina. */
+  const repouso = await medir(3000);
+  check('em repouso o globo nao redesenha a 60fps', repouso < 300,
+    `${repouso} draw calls em 3s`);
+
+  /* O outro lado do mesmo contrato: dormir e facil, acordar e o que importa.
+     Um globo que nao responde ao arrasto tambem passaria no teste acima.
+
+     O piso mede se o loop acordou, nao quanto trabalho ele fez. A cena gasta
+     ~7 draw calls por quadro, entao qualquer coisa acima de 20 ja e mais de um
+     punhado de quadros desenhados durante o arrasto, e um globo que ficou
+     dormindo le zero -- que e a regressao que este check existe para pegar.
+     Um piso alto demais mede a GPU do runner e nao o codigo: com GL por
+     software o WebKit do CI fez 72 onde uma maquina com placa faz 540, e as
+     duas estao igualmente corretas. */
+  await page.mouse.move(700, 400);
+  await page.mouse.down();
+  await page.evaluate(() => { window.__draws = 0; });
+  for (let i = 0; i < 24; i++) {
+    await page.mouse.move(700 + i * 6, 400);
+    await page.waitForTimeout(16);
+  }
+  await page.mouse.up();
+  const arrasto = await page.evaluate(() => window.__draws);
+  check('arrastar o globo acorda o loop', arrasto > 20, `${arrasto} draw calls`);
+
+  /* Trocar de dia move o sol de verdade, e o terminador precisa animar ate a
+     nova posicao -- exatamente o caso que um setDate com limiar mal escolhido
+     mataria em silencio. */
+  await page.waitForTimeout(3500);
+  await page.locator('.tl-day').nth(6).click();
+  await page.evaluate(() => { window.__draws = 0; });
+  await page.waitForTimeout(1500);
+  const scrub = await page.evaluate(() => window.__draws);
+  check('trocar de dia redesenha o terminador', scrub > 20, `${scrub} draw calls`);
+
+  /* E volta a dormir depois. */
+  await page.waitForTimeout(3500);
+  const voltou = await medir(3000);
+  check('e volta ao repouso depois', voltou < 300, `${voltou} draw calls em 3s`);
+
+  await page.close();
+}
+
+/* ================================ 10. CONTEXTO WEBGL PERDIDO ========== */
+
+/* Um contexto WebGL nao dura necessariamente o que dura a pagina: um reset de
+   GPU (rotina no Windows, onde o watchdog do driver reinicia um adaptador
+   travado), um notebook voltando do sleep, ou o navegador recuperando memoria
+   de uma aba em segundo plano levam o contexto embora. Sem tratamento o canvas
+   congela no ultimo quadro e todo desenho posterior nao faz nada -- em
+   silencio. WEBGL_lose_context simula exatamente isso. */
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  const erros = [];
+  page.on('pageerror', (e) => erros.push(String(e).slice(0, 160)));
+  await page.goto(URL, { waitUntil: 'networkidle' });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  await page.waitForTimeout(3000);
+
+  const suportado = await page.evaluate(() => {
+    const canvas = document.getElementById('stage');
+    const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+    window.__ext = gl.getExtension('WEBGL_lose_context');
+    window.__perdeu = false;
+    window.__voltou = false;
+    canvas.addEventListener('webglcontextlost', () => { window.__perdeu = true; });
+    canvas.addEventListener('webglcontextrestored', () => { window.__voltou = true; });
+    return !!window.__ext;
+  });
+
+  if (!suportado) {
+    /* Sem a extensao nao da para provocar a perda; nao e uma falha do site. */
+    check('perda de contexto: extensao disponivel para testar', true, 'SKIP');
+  } else {
+    /* preventDefault no evento e o que faz o navegador prometer a restauracao.
+       Sem ele webglcontextrestored nunca dispara e o congelamento e definitivo,
+       entao este check separa "tratado" de "tratado pela metade". Medido antes
+       de perder o contexto de verdade, com um evento sintetico. */
+    const cancelado = await page.evaluate(() => {
+      const canvas = document.getElementById('stage');
+      const teste = new Event('webglcontextlost', { cancelable: true });
+      return !canvas.dispatchEvent(teste);
+    });
+    check('a perda e cancelada, para o navegador restaurar', cancelado);
+
+    await page.evaluate(() => window.__ext.loseContext());
+    await page.waitForTimeout(800);
+    check('a perda de contexto WebGL e percebida',
+      await page.evaluate(() => window.__perdeu));
+
+    /* Contar os desenhos ao longo da propria restauracao, e nao depois dela.
+       O render sob demanda faz o globo voltar a dormir assim que a cena esta
+       correta, entao medir 1.5s mais tarde -- com um pointermove que nao move
+       camera nenhuma -- le zero num globo perfeitamente saudavel. A janela que
+       importa e a da retomada: se o loop nao voltou, ela e que fica em zero.
+       O hook tem de ser posto antes de perder o contexto, porque os metodos
+       instrumentados precisam sobreviver ao ciclo. */
+    const desenhando = await page.evaluate(async () => {
+      window.__n = 0;
+      const canvas = document.getElementById('stage');
+      const gl = canvas.getContext('webgl2') ?? canvas.getContext('webgl');
+      for (const metodo of ['drawElements', 'drawArrays', 'drawElementsInstanced']) {
+        if (!gl[metodo]) continue;
+        const original = gl[metodo].bind(gl);
+        gl[metodo] = (...args) => { window.__n++; return original(...args); };
+      }
+      window.__ext.restoreContext();
+      await new Promise((r) => setTimeout(r, 3000));
+      return window.__n;
+    });
+    check('o contexto e restaurado', await page.evaluate(() => window.__voltou));
+    check('o globo volta a desenhar depois da restauracao', desenhando > 0,
+      `${desenhando} draw calls durante a retomada`);
+    check('e sem erro de JS', erros.length === 0, erros.join(' | '));
+  }
+  await page.close();
+}
+
+/* ================================ 11. TIMERS EM SEGUNDO PLANO ========= */
+
+/* Um relogio que ninguem pode ver nao precisa bater. O navegador limita os
+   timers de uma aba escondida, mas limitar nao e parar: antes disso o timer de
+   um segundo continuava escrevendo no DOM e empurrando um vetor de sol novo no
+   globo, para sempre, atras do que a pessoa estava realmente olhando. */
+{
+  const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
+  await page.goto(URL, { waitUntil: 'networkidle' });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  await page.waitForTimeout(2500);
+
+  /* O que o codigo le e document.hidden, e nenhuma API do Playwright esconde
+     a aba de verdade -- sobrepor a propriedade e disparar o evento e o que
+     reproduz o estado que o navegador criaria. */
+  const esconder = (valor) => {
+    Object.defineProperty(document, 'hidden', { configurable: true, get: () => valor });
+    Object.defineProperty(document, 'visibilityState',
+      { configurable: true, get: () => (valor ? 'hidden' : 'visible') });
+    document.dispatchEvent(new Event('visibilitychange'));
+  };
+
+  const antes = await page.evaluate(() => document.getElementById('clock').textContent);
+  await page.evaluate(esconder, true);
+  await page.waitForTimeout(3000);
+  const escondido = await page.evaluate(() => document.getElementById('clock').textContent);
+  check('com a aba escondida o relogio para', antes === escondido,
+    `${antes} -> ${escondido}`);
+
+  /* E o ponto todo: voltar tem de alcancar o tempo perdido na hora, nao um
+     minuto depois. */
+  await page.evaluate(esconder, false);
+  await page.waitForTimeout(500);
+  const voltando = await page.evaluate(() => document.getElementById('clock').textContent);
+  check('e volta a bater assim que a aba reaparece', voltando !== escondido,
+    `${escondido} -> ${voltando}`);
   await page.close();
 }
 
