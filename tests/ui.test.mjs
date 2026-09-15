@@ -1017,20 +1017,39 @@ console.log('\n=== UI: as bandeiras dos paises ===');
     document.dispatchEvent(new Event('visibilitychange'));
   };
 
-  const antes = await page.evaluate(() => document.getElementById('clock').textContent);
+  /* A leitura de referencia vem DEPOIS de esconder, nao antes. Lida antes, ela
+     abre uma janela de ate um segundo em que o tick ja agendado ainda dispara
+     -- legitimamente, porque ele foi marcado enquanto a aba estava visivel --
+     e o relogio avanca uma vez antes de parar. O teste lia isso como "nao
+     parou" e falhava num comportamento correto, dependendo de onde o segundo
+     caia: verde no PR, vermelho na main vinte minutos depois. O que importa e
+     que nao avance mais depois de escondido, entao a medida e essa. */
   await page.evaluate(esconder, true);
-  await page.waitForTimeout(3000);
+  await page.waitForTimeout(1200);
   const escondido = await page.evaluate(() => document.getElementById('clock').textContent);
-  check('com a aba escondida o relogio para', antes === escondido,
-    `${antes} -> ${escondido}`);
+  await page.waitForTimeout(3000);
+  const aindaEscondido = await page.evaluate(() => document.getElementById('clock').textContent);
+  check('com a aba escondida o relogio para', escondido === aindaEscondido,
+    `${escondido} -> ${aindaEscondido}`);
 
   /* E o ponto todo: voltar tem de alcancar o tempo perdido na hora, nao um
-     minuto depois. */
+     minuto depois. A aba ficou escondida uns 4s, entao o relogio tem de dar um
+     salto de varios segundos de uma vez -- e nao apenas ser diferente, que um
+     unico tick normal tambem satisfaria. Comparar com o relogio de verdade e o
+     que separa "voltou a andar" de "voltou a andar do lugar certo". */
   await page.evaluate(esconder, false);
   await page.waitForTimeout(500);
   const voltando = await page.evaluate(() => document.getElementById('clock').textContent);
-  check('e volta a bater assim que a aba reaparece', voltando !== escondido,
-    `${escondido} -> ${voltando}`);
+  const emSegundos = (hms) => {
+    const [h, m, sec] = hms.split(':').map(Number);
+    return h * 3600 + m * 60 + sec;
+  };
+  /* +24h antes do resto para o caso de a medida cair sobre a meia-noite UTC,
+     onde a subtracao crua daria -86397 e reprovaria uma passagem correta. */
+  const DIA = 86400;
+  const salto = (emSegundos(voltando) - emSegundos(aindaEscondido) + DIA) % DIA;
+  check('e volta a bater assim que a aba reaparece', salto >= 3,
+    `${aindaEscondido} -> ${voltando} (${salto}s)`);
   await page.close();
 }
 
