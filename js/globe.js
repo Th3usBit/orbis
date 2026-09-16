@@ -23,6 +23,25 @@ const MAX_PULSES = 24;
 const IDLE_BEFORE_SPIN = 4200;
 const DEG = Math.PI / 180;
 
+/* How the selected country stands out from its neighbours. Allocated once:
+   composeMarkers() runs over every marker and must not build objects in the
+   loop. */
+const HIGHLIGHT_LIFT = 1.35;   // pillar height multiplier
+const HIGHLIGHT_HEAD = 1.6;    // head radius multiplier
+const HIGHLIGHT_TINT = new THREE.Color(0xffffff);
+
+/* Breathing room around the planet once it is framed, as a multiple of its
+   radius. At 1.0 it touches the edges of the clear area exactly, which reads
+   as cramped; this leaves a rim of space so it sits in the view rather than
+   filling it. */
+const FIT_MARGIN = 1.16;
+
+/* Where the camera sits when a rail has stacked under the globe instead of
+   beside it. Not derived: in that layout the planet is deliberately larger
+   than the strip showing it, so there is nothing to fit it to. Close enough to
+   read the markers, far enough that the visible cap still looks spherical. */
+const STACKED_DISTANCE = 4.6;
+
 /* ------------------------------------------------------------------ maths */
 
 export function latLonToVector3(lat, lon, radius = RADIUS) {
@@ -127,7 +146,14 @@ const DOTS_FRAG = /* glsl */`
     if (dist > 0.25) discard;
 
     float edge = smoothstep(0.25, 0.06, dist);
-    float daylight = smoothstep(-0.18, 0.38, dot(normalize(vNormalW), normalize(uSun)));
+    // The night side never reaches zero: pillars use MeshBasicMaterial and are
+    // lit the same everywhere, so a continent that fades out leaves a coloured
+    // marker floating over nothing recognisable. Half the day's releases land
+    // on the dark half, always. The floor puts a night dot at 4.32:1 against
+    // the ocean -- above the 3:1 a graphic object needs to read at all.
+    // Deliberately only the land: the ocean still darkens completely, and that
+    // difference is what keeps the terminator visible.
+    float daylight = 0.34 + 0.66 * smoothstep(-0.18, 0.38, dot(normalize(vNormalW), normalize(uSun)));
 
     gl_FragColor = vec4(mix(uNight, uDay, daylight), edge);
     #include <colorspace_fragment>
@@ -334,7 +360,15 @@ export async function createGlobe(canvas, handlers = {}) {
   let hovered = null;
   let lastInteraction = performance.now();
   let flight = null;
+  /* `to` is a placeholder: resize() runs before the first frame and replaces it
+     with the distance that actually fits this viewport. */
   let intro = { t: 0, from: 5.6, to: 3.05 };
+  /* Set once the viewer zooms. After that the framing is theirs, and a resize
+     must not haul the camera back to the fitted distance. `fittedAt` is the
+     distance we last put the camera at, so a 'change' event can tell a zoom
+     from a rotation. */
+  let userZoomed = false;
+  let fittedAt = 3.05;
   let running = true;
   let contextLost = false;
   let pulseCount = 0;
@@ -351,19 +385,39 @@ export async function createGlobe(canvas, handlers = {}) {
     canvas.classList.add('is-dragging');
     intro = null;
   });
-  controls.addEventListener('change', () => { lastInteraction = performance.now(); invalidate(); });
+  controls.addEventListener('change', () => {
+    lastInteraction = performance.now();
+    /* Rotating keeps the distance; zooming changes it. Only the second one
+       means the viewer has chosen their own framing, so only that one stops
+       resize() from re-fitting. A flight sets the distance itself and must not
+       be mistaken for the viewer doing it. */
+    if (!flight && !intro) {
+      const d = camera.position.length();
+      if (Math.abs(d - fittedAt) > 0.02) userZoomed = true;
+    }
+    invalidate();
+  });
   controls.addEventListener('end', () => canvas.classList.remove('is-dragging'));
 
   /* --- marker rebuild ----------------------------------------------------- */
 
   function setMarkers(list) {
     markerData = list.slice(0, MAX_MARKERS);
+    composeMarkers();
+  }
 
+  // Split out from setMarkers so selecting a country can redraw the pillars
+  // without the store having to hand the same list back. The selected country
+  // grows and pales; everything else keeps its impact colour.
+  function composeMarkers() {
     const colorHolder = new THREE.Color();
 
     markerData.forEach((marker, index) => {
       const normal = latLonToVector3(marker.lat, marker.lon, 1).normalize();
-      const height = markerHeight(marker);
+      const picked = highlighted != null && marker.code === highlighted;
+      // The head sits on top of the pillar, so it has to be lifted by the same
+      // height the pillar was scaled to -- otherwise it floats off the tip.
+      const height = markerHeight(marker) * (picked ? HIGHLIGHT_LIFT : 1);
 
       scratch.quat.setFromUnitVectors(scratch.up, normal);
 
@@ -374,14 +428,26 @@ export async function createGlobe(canvas, handlers = {}) {
       );
       markers.setMatrixAt(index, scratch.matrix);
 
+      // How many releases a country has rides on the head, not on the pillar:
+      // the pillar is calibrated so impact dominates (see markerHeight), and
+      // widening its base would collide with neighbours -- Austria and Slovakia
+      // sit 0.0087 apart on a base already 0.029 wide. The head is at the tip,
+      // clear of the surface, and already draws additively. Capped low on
+      // purpose: the busiest country-day in the real feed is 45 events, and
+      // past a quarter again the head stops reading as a marker.
+      const bulk = 1 + Math.min(Math.log10(marker.count + 1) * 0.16, 0.26);
+      const headScale = (marker.maxImpact >= 3 ? 1.15 : 0.8) * bulk * (picked ? HIGHLIGHT_HEAD : 1);
       scratch.matrix.compose(
         normal.clone().multiplyScalar(RADIUS * 0.998 + height),
         scratch.quat,
-        new THREE.Vector3(1, 1, 1).multiplyScalar(marker.maxImpact >= 3 ? 1.15 : 0.8),
+        new THREE.Vector3(1, 1, 1).multiplyScalar(headScale),
       );
       heads.setMatrixAt(index, scratch.matrix);
 
       colorHolder.set(IMPACT_COLORS[marker.maxImpact] ?? IMPACT_COLORS[1]);
+      // Static emphasis, never a pulse: a pulse already means "release within
+      // the hour", and two moving signals on one globe cannot be told apart.
+      if (picked) colorHolder.lerp(HIGHLIGHT_TINT, 0.45);
       markers.setColorAt(index, colorHolder);
       heads.setColorAt(index, colorHolder);
     });
@@ -472,7 +538,7 @@ export async function createGlobe(canvas, handlers = {}) {
   function setHighlight(code) {
     if (code === highlighted) return;
     highlighted = code;
-    invalidate();
+    composeMarkers();   // also invalidates
   }
 
   /* --- pointer ------------------------------------------------------------ */
@@ -547,6 +613,77 @@ export async function createGlobe(canvas, handlers = {}) {
 
   /* --- resize -------------------------------------------------------------- */
 
+  /* The distance at which the whole planet fits on screen.
+   *
+   * A perspective camera at distance d sees a half-height of d*tan(fov/2) at
+   * the origin, so a sphere of RADIUS needs d = RADIUS/tan(fov/2) to touch the
+   * top and bottom edges -- times a margin, so it does not graze them.
+   *
+   * The rails float over the canvas rather than shrinking it, so the width
+   * that actually shows planet is the canvas minus both of them; on a narrow
+   * screen they stop floating and the full width is available. Deriving this
+   * instead of hardcoding a distance is what keeps the globe whole on a
+   * laptop and on a 1440p monitor alike -- a single fixed value cannot be
+   * right for both, and the one that was here clipped the poles on every
+   * desktop size we measured. */
+  function fitDistance() {
+    const width = canvas.clientWidth || window.innerWidth;
+    const height = canvas.clientHeight || window.innerHeight;
+    const halfFov = Math.tan((camera.fov * DEG) / 2);
+
+    /* Measure the chrome rather than hardcoding it: the rails collapse into a
+       drawer at one breakpoint, the timeline changes height at another, and a
+       constant here would quietly stop matching the stylesheet. An element
+       that is off-screen or collapsed measures zero, which is the right
+       answer. */
+    const box = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.left > width || r.right < 0 || r.width < 1) return null;   // drawer, off-screen
+      return r;
+    };
+
+    /* A rail costs width when it sits beside the globe and height when it sits
+       under it, and which one depends on the breakpoint rather than on the
+       rail. Decide from measured geometry: anything spanning most of the
+       viewport is stacked, anything narrower is alongside. */
+    let stacked = false;
+    for (const sel of ['.rail-left', '.rail-right']) {
+      const r = box(sel);
+      if (r && r.width > width * 0.7) stacked = true;
+    }
+
+    /* Once a rail stacks, the strip left for the globe is a few hundred pixels
+       tall, and fitting the whole sphere into it would need a distance of ~10 --
+       a marble at the top of the screen. That is the wrong goal here: in this
+       layout the panel is the content and the globe is the header above it, so
+       it stays at a readable size and lets the panel overlap its lower half.
+       Only the side-by-side layout gets framed to fit. */
+    if (stacked) return STACKED_DISTANCE;
+
+    /* The globe is drawn at the centre of the canvas, but the clear area is not
+       centred on it: the topbar is shorter than the timeline, and the two rails
+       are different widths. So what bounds the sphere is the distance from the
+       canvas centre to the NEAREST edge of the clear area, not the size of that
+       area -- measuring the area instead lets a lopsided layout put the planet
+       9px from the timeline while 52px go spare above it. */
+    const cx = width / 2, cy = height / 2;
+    const left = box('.rail-left'), right = box('.rail-right');
+
+    const halfSpan = Math.max(80, Math.min(
+      cy - (box('.topbar')?.height ?? 0),          // up to the topbar
+      cy - (box('.timeline')?.height ?? 0),        // down to the timeline
+      cx - (left ? left.right : 0),                // out to the left rail
+      cx - (right ? width - right.left : 0),       // out to the right rail
+    ));
+
+    /* A sphere of RADIUS fills halfSpan pixels when halfSpan = (height/2) /
+       (d * tan(fov/2)); solve for d and add the margin. */
+    const d = (RADIUS * FIT_MARGIN * (height / 2)) / (halfSpan * halfFov);
+    return Math.min(Math.max(d, controls.minDistance), controls.maxDistance);
+  }
+
   function resize() {
     const width = canvas.clientWidth || window.innerWidth;
     const height = canvas.clientHeight || window.innerHeight;
@@ -555,6 +692,15 @@ export async function createGlobe(canvas, handlers = {}) {
     camera.updateProjectionMatrix();
     dotUniforms.uPixelRatio.value = renderer.getPixelRatio();
     pulseUniforms.uPixelRatio.value = renderer.getPixelRatio();
+
+    /* Re-fit on resize, but only while the viewer has not taken over: once
+       somebody has zoomed, moving the camera under them is the rug being
+       pulled. The intro reads the new target on its next frame. */
+    if (intro) {
+      intro.to = fittedAt = fitDistance();
+    } else if (!userZoomed && !flight) {
+      camera.position.setLength(fittedAt = fitDistance());
+    }
     invalidate();
   }
 
@@ -690,6 +836,14 @@ export async function createGlobe(canvas, handlers = {}) {
     setHighlight,
     focus,
     resize,
+
+    /** How far the camera currently sits from the centre of the globe, and the
+     *  distance at which the whole planet fits the clear area. The framing is
+     *  computed from the viewport, so the only way to check it held is to ask
+     *  what it came out as -- reproducing the formula in a test would only
+     *  prove the formula equals itself. */
+    get cameraDistance() { return camera.position.length(); },
+    get fittedDistance() { return fitDistance(); },
 
     /** Stop the loop and release the GL context. Nothing calls this today --
      *  the globe lives as long as the page -- but tearing down a WebGL scene
