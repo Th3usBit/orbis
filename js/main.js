@@ -49,6 +49,10 @@ async function boot() {
       },
       onHover: (marker, x, y) => renderTooltip(marker, x, y),
     });
+    /* The camera frames itself from the viewport, and the only honest way to
+       check that framing is to read what it settled on. Exposed for
+       tests/ui.test.mjs; nothing in the app reads it. */
+    window.__orbisGlobe = globe;
   } catch (error) {
     return fail('WebGL is unavailable in this browser.', error);
   }
