@@ -118,12 +118,65 @@ const check = (name, ok, detail = '') => {
    budget was not, so it is named here and used by every wait for a boot. */
 const BOOT_TIMEOUT = 60000;
 
+/**
+ * Wait for a boot, and when it never comes, ask the page why.
+ *
+ * WebKit hangs here on CI and nowhere else: 60s with #shell never unhiding,
+ * while the same page boots in 300ms on a desktop GPU and survives repeated
+ * context loss locally. A bare timeout only says "it did not happen", so every
+ * wait goes through here and a failed one reports what the boot was still
+ * waiting for. Remove the diagnostic once the cause is known; keep the helper.
+ *
+ * What it does NOT do is ask the canvas for a context. Reproducing a hung boot
+ * (route land-dots.json to a black hole) shows getContext CREATING one on the
+ * canvas that createGlobe never reached, and reporting "obtido" for a page
+ * where the globe does not exist -- the probe inverts precisely the signal it
+ * was added to read, and on a runner short of GPU contexts it would also spend
+ * one. window.__orbisGlobe already answers the question without touching the
+ * GPU: js/main.js sets it right after createGlobe resolves.
+ *
+ * Nor does it time in-flight requests. The same reproduction shows a hung
+ * fetch does not appear in getEntriesByType('resource') at all -- it is not a
+ * slow entry, it is a missing one. So the useful field is which of the four
+ * boot resources never arrived, which names the culprit outright.
+ */
+async function esperarBoot(page, rotulo = 'boot') {
+  try {
+    await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+    return true;
+  } catch (erro) {
+    /* The page may be hung because its main thread is, in which case evaluate
+       never settles. Race it, or the diagnostic costs more than the timeout it
+       explains and never prints. */
+    const estado = await Promise.race([
+      page.evaluate(() => {
+        const ESPERADOS = ['land-dots', 'borders', 'calendar', 'countries'];
+        const vistos = performance.getEntriesByType('resource')
+          .filter((r) => ESPERADOS.some((n) => r.name.includes(n)));
+        const erroBoot = document.getElementById('boot-error');
+        return {
+          shellHidden: document.getElementById('shell')?.hidden,
+          globoCriado: !!window.__orbisGlobe,
+          readyState: document.readyState,
+          naoChegaram: ESPERADOS.filter((n) => !vistos.some((r) => r.name.includes(n))),
+          emVoo: vistos.filter((r) => r.responseEnd === 0).map((r) => r.name.split('/').pop()),
+          bootError: erroBoot && !erroBoot.hidden ? erroBoot.textContent : null,
+          textoVisivel: (document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 140),
+        };
+      }),
+      new Promise((resolve) => setTimeout(() => resolve({ erro: 'a pagina nao respondeu ao evaluate em 5s — main thread travada?' }), 5000)),
+    ]).catch((e) => ({ erro: e.message }));
+    console.log(`  DIAGNOSTICO do ${rotulo} travado:`, JSON.stringify(estado));
+    throw erro;
+  }
+}
+
 const open = async (w = 1440, h = 900, tz = 'America/Sao_Paulo', reducedMotion = 'no-preference') => {
   const page = await browser.newPage({ viewport: { width: w, height: h }, timezoneId: tz, reducedMotion });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  await esperarBoot(page);
   /* The rail is laid out in a webfont that arrives after first paint, and the
      cards are sized by their text, so every height measured before the swap is
      a measurement of the fallback font. That is a real 7px of rail overflow
@@ -827,7 +880,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
     if (r.url().includes('noto-color-emoji')) pedidos.push(r.url());
   });
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  await esperarBoot(page);
   await page.waitForTimeout(2500);
   const depois = await medir();
 
@@ -862,8 +915,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
     };
   });
   await page.goto(URL, { waitUntil: 'load' });
-  const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT })
-    .then(() => true).catch(() => false);
+  const subiu = await esperarBoot(page, 'reload').catch(() => false);
   await page.waitForTimeout(1500);
   const linhas = await page.evaluate(() => document.querySelectorAll('#event-list .event').length);
   check('a pagina sobe sem canvas 2d', subiu && linhas > 0, `subiu=${subiu}, ${linhas} linhas`);
@@ -909,7 +961,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.clock.setSystemTime(new Date(quieto));
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  await esperarBoot(page);
 
   /* A entrada do globo dura ~1.9s e o damping continua depois dela; so vale
      medir repouso quando tudo isso acabou. */
@@ -992,7 +1044,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   const erros = [];
   page.on('pageerror', (e) => erros.push(String(e).slice(0, 160)));
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  await esperarBoot(page);
   await page.waitForTimeout(3000);
 
   const suportado = await page.evaluate(() => {
@@ -1063,7 +1115,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
 {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  await esperarBoot(page);
   await page.waitForTimeout(2500);
 
   /* O que o codigo le e document.hidden, e nenhuma API do Playwright esconde
@@ -1195,36 +1247,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
     !/impact|region|category/.test(antes.url), antes.url);
 
   await page.reload({ waitUntil: 'load' });
-  /* This reload is where WebKit hangs on CI and nowhere else: 60s with #shell
-     never unhiding, while the same page boots in 300ms on a desktop GPU and
-     survives repeated context loss locally. A bare timeout only says "it did
-     not happen", so on the way out ask the page what it was still waiting for
-     -- whether the globe module got a WebGL context at all, whether its
-     geometry fetches resolved, what the boot left on screen. Remove once the
-     cause is known. */
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT })
-    .catch(async (erro) => {
-      const estado = await page.evaluate(() => {
-        const canvas = document.querySelector('canvas');
-        let contexto = 'sem canvas';
-        if (canvas) {
-          try { contexto = (canvas.getContext('webgl2') || canvas.getContext('webgl')) ? 'obtido' : 'NULO'; }
-          catch (e) { contexto = 'erro: ' + e.message; }
-        }
-        return {
-          shellHidden: document.getElementById('shell')?.hidden,
-          globoCriado: !!window.__orbisGlobe,
-          contexto,
-          readyState: document.readyState,
-          recursos: performance.getEntriesByType('resource')
-            .filter((r) => /land-dots|borders|calendar|countries/.test(r.name))
-            .map((r) => `${r.name.split('/').pop()}=${Math.round(r.duration)}ms`),
-          textoVisivel: (document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 140),
-        };
-      }).catch((e) => `nao consegui avaliar: ${e.message}`);
-      console.log('  DIAGNOSTICO do boot travado:', JSON.stringify(estado));
-      throw erro;
-    });
+  await esperarBoot(page);
   await page.waitForTimeout(2500);
   const depois = await page.evaluate(() => ({
     pressionados: [...document.querySelectorAll('#filter-impact [aria-pressed]')]
@@ -1242,7 +1265,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
   await page.locator('#panel-reset').click();
   await page.waitForTimeout(500);
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  await esperarBoot(page);
   await page.waitForTimeout(2500);
   const limpo = await page.evaluate(() => ({
     escondido: document.getElementById('filters-badge').hidden,
@@ -1264,7 +1287,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
   const erros = [];
   page.on('pageerror', (e) => erros.push(String(e).slice(0, 160)));
   await page.goto(URL, { waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  await esperarBoot(page);
 
   for (const lixo of [
     '{"impact":[]}',                              // um set vazio e uma tela vazia
@@ -1275,8 +1298,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
   ]) {
     await page.evaluate((v) => localStorage.setItem('orbis.filters', v), lixo);
     await page.reload({ waitUntil: 'load' });
-    const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT })
-      .then(() => true).catch(() => false);
+    const subiu = await esperarBoot(page, 'reload').catch(() => false);
     await page.waitForTimeout(2000);
     const r = await page.evaluate(() => ({
       linhas: document.querySelectorAll('#event-list .event').length,
