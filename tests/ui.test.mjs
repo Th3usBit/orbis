@@ -1314,8 +1314,12 @@ console.log('\n=== UI: o planeta inteiro cabe, em qualquer tela ===');
       dir: (m.railR?.esq ?? m.canvas.w) - (cx + raioPx),
     };
 
-    const invade = Object.entries(folga).filter(([, v]) => v < 0);
-    check(`${nome}: o globo nao e cortado nem passa sob as rails`,
+    /* Exigir uma folga real, nao apenas ausencia de sobreposicao: encostar na
+       timeline por 0px passa num teste de "v < 0" e ainda assim le como
+       cortado, e basta a barra crescer um pixel para passar a cortar mesmo. */
+    const MIN_FOLGA = 12;
+    const invade = Object.entries(folga).filter(([, v]) => v < MIN_FOLGA);
+    check(`${nome}: o globo mantem folga de ${MIN_FOLGA}px das bordas e rails`,
       invade.length === 0,
       invade.map(([k, v]) => `${k} ${Math.round(v)}px`).join(', '));
     /* E o contrario tambem importa: um globo minusculo tecnicamente "cabe". */

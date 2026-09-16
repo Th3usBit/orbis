@@ -648,11 +648,10 @@ export async function createGlobe(canvas, handlers = {}) {
        under it, and which one depends on the breakpoint rather than on the
        rail. Decide from measured geometry: anything spanning most of the
        viewport is stacked, anything narrower is alongside. */
-    let takenW = 0, stacked = false;
+    let stacked = false;
     for (const sel of ['.rail-left', '.rail-right']) {
       const r = box(sel);
-      if (!r) continue;
-      if (r.width > width * 0.7) stacked = true; else takenW += r.width;
+      if (r && r.width > width * 0.7) stacked = true;
     }
 
     /* Once a rail stacks, the strip left for the globe is a few hundred pixels
@@ -663,14 +662,26 @@ export async function createGlobe(canvas, handlers = {}) {
        Only the side-by-side layout gets framed to fit. */
     if (stacked) return STACKED_DISTANCE;
 
-    const usableW = Math.max(240, width - takenW);
-    const usableH = Math.max(240, height
-      - (box('.topbar')?.height ?? 0)
-      - (box('.timeline')?.height ?? 0));
+    /* The globe is drawn at the centre of the canvas, but the clear area is not
+       centred on it: the topbar is shorter than the timeline, and the two rails
+       are different widths. So what bounds the sphere is the distance from the
+       canvas centre to the NEAREST edge of the clear area, not the size of that
+       area -- measuring the area instead lets a lopsided layout put the planet
+       9px from the timeline while 52px go spare above it. */
+    const cx = width / 2, cy = height / 2;
+    const left = box('.rail-left'), right = box('.rail-right');
 
-    const forHeight = (RADIUS * FIT_MARGIN) / halfFov * (height / usableH);
-    const forWidth = (RADIUS * FIT_MARGIN) / (halfFov * (width / height)) * (width / usableW);
-    return Math.min(Math.max(forHeight, forWidth), controls.maxDistance);
+    const halfSpan = Math.max(80, Math.min(
+      cy - (box('.topbar')?.height ?? 0),          // up to the topbar
+      cy - (box('.timeline')?.height ?? 0),        // down to the timeline
+      cx - (left ? left.right : 0),                // out to the left rail
+      cx - (right ? width - right.left : 0),       // out to the right rail
+    ));
+
+    /* A sphere of RADIUS fills halfSpan pixels when halfSpan = (height/2) /
+       (d * tan(fov/2)); solve for d and add the margin. */
+    const d = (RADIUS * FIT_MARGIN * (height / 2)) / (halfSpan * halfFov);
+    return Math.min(Math.max(d, controls.minDistance), controls.maxDistance);
   }
 
   function resize() {
