@@ -30,6 +30,18 @@ const HIGHLIGHT_LIFT = 1.35;   // pillar height multiplier
 const HIGHLIGHT_HEAD = 1.6;    // head radius multiplier
 const HIGHLIGHT_TINT = new THREE.Color(0xffffff);
 
+/* Breathing room around the planet once it is framed, as a multiple of its
+   radius. At 1.0 it touches the edges of the clear area exactly, which reads
+   as cramped; this leaves a rim of space so it sits in the view rather than
+   filling it. */
+const FIT_MARGIN = 1.16;
+
+/* Where the camera sits when a rail has stacked under the globe instead of
+   beside it. Not derived: in that layout the planet is deliberately larger
+   than the strip showing it, so there is nothing to fit it to. Close enough to
+   read the markers, far enough that the visible cap still looks spherical. */
+const STACKED_DISTANCE = 4.6;
+
 /* ------------------------------------------------------------------ maths */
 
 export function latLonToVector3(lat, lon, radius = RADIUS) {
@@ -348,7 +360,15 @@ export async function createGlobe(canvas, handlers = {}) {
   let hovered = null;
   let lastInteraction = performance.now();
   let flight = null;
+  /* `to` is a placeholder: resize() runs before the first frame and replaces it
+     with the distance that actually fits this viewport. */
   let intro = { t: 0, from: 5.6, to: 3.05 };
+  /* Set once the viewer zooms. After that the framing is theirs, and a resize
+     must not haul the camera back to the fitted distance. `fittedAt` is the
+     distance we last put the camera at, so a 'change' event can tell a zoom
+     from a rotation. */
+  let userZoomed = false;
+  let fittedAt = 3.05;
   let running = true;
   let contextLost = false;
   let pulseCount = 0;
@@ -365,7 +385,18 @@ export async function createGlobe(canvas, handlers = {}) {
     canvas.classList.add('is-dragging');
     intro = null;
   });
-  controls.addEventListener('change', () => { lastInteraction = performance.now(); invalidate(); });
+  controls.addEventListener('change', () => {
+    lastInteraction = performance.now();
+    /* Rotating keeps the distance; zooming changes it. Only the second one
+       means the viewer has chosen their own framing, so only that one stops
+       resize() from re-fitting. A flight sets the distance itself and must not
+       be mistaken for the viewer doing it. */
+    if (!flight && !intro) {
+      const d = camera.position.length();
+      if (Math.abs(d - fittedAt) > 0.02) userZoomed = true;
+    }
+    invalidate();
+  });
   controls.addEventListener('end', () => canvas.classList.remove('is-dragging'));
 
   /* --- marker rebuild ----------------------------------------------------- */
@@ -582,6 +613,66 @@ export async function createGlobe(canvas, handlers = {}) {
 
   /* --- resize -------------------------------------------------------------- */
 
+  /* The distance at which the whole planet fits on screen.
+   *
+   * A perspective camera at distance d sees a half-height of d*tan(fov/2) at
+   * the origin, so a sphere of RADIUS needs d = RADIUS/tan(fov/2) to touch the
+   * top and bottom edges -- times a margin, so it does not graze them.
+   *
+   * The rails float over the canvas rather than shrinking it, so the width
+   * that actually shows planet is the canvas minus both of them; on a narrow
+   * screen they stop floating and the full width is available. Deriving this
+   * instead of hardcoding a distance is what keeps the globe whole on a
+   * laptop and on a 1440p monitor alike -- a single fixed value cannot be
+   * right for both, and the one that was here clipped the poles on every
+   * desktop size we measured. */
+  function fitDistance() {
+    const width = canvas.clientWidth || window.innerWidth;
+    const height = canvas.clientHeight || window.innerHeight;
+    const halfFov = Math.tan((camera.fov * DEG) / 2);
+
+    /* Measure the chrome rather than hardcoding it: the rails collapse into a
+       drawer at one breakpoint, the timeline changes height at another, and a
+       constant here would quietly stop matching the stylesheet. An element
+       that is off-screen or collapsed measures zero, which is the right
+       answer. */
+    const box = (sel) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const r = el.getBoundingClientRect();
+      if (r.left > width || r.right < 0 || r.width < 1) return null;   // drawer, off-screen
+      return r;
+    };
+
+    /* A rail costs width when it sits beside the globe and height when it sits
+       under it, and which one depends on the breakpoint rather than on the
+       rail. Decide from measured geometry: anything spanning most of the
+       viewport is stacked, anything narrower is alongside. */
+    let takenW = 0, stacked = false;
+    for (const sel of ['.rail-left', '.rail-right']) {
+      const r = box(sel);
+      if (!r) continue;
+      if (r.width > width * 0.7) stacked = true; else takenW += r.width;
+    }
+
+    /* Once a rail stacks, the strip left for the globe is a few hundred pixels
+       tall, and fitting the whole sphere into it would need a distance of ~10 --
+       a marble at the top of the screen. That is the wrong goal here: in this
+       layout the panel is the content and the globe is the header above it, so
+       it stays at a readable size and lets the panel overlap its lower half.
+       Only the side-by-side layout gets framed to fit. */
+    if (stacked) return STACKED_DISTANCE;
+
+    const usableW = Math.max(240, width - takenW);
+    const usableH = Math.max(240, height
+      - (box('.topbar')?.height ?? 0)
+      - (box('.timeline')?.height ?? 0));
+
+    const forHeight = (RADIUS * FIT_MARGIN) / halfFov * (height / usableH);
+    const forWidth = (RADIUS * FIT_MARGIN) / (halfFov * (width / height)) * (width / usableW);
+    return Math.min(Math.max(forHeight, forWidth), controls.maxDistance);
+  }
+
   function resize() {
     const width = canvas.clientWidth || window.innerWidth;
     const height = canvas.clientHeight || window.innerHeight;
@@ -590,6 +681,15 @@ export async function createGlobe(canvas, handlers = {}) {
     camera.updateProjectionMatrix();
     dotUniforms.uPixelRatio.value = renderer.getPixelRatio();
     pulseUniforms.uPixelRatio.value = renderer.getPixelRatio();
+
+    /* Re-fit on resize, but only while the viewer has not taken over: once
+       somebody has zoomed, moving the camera under them is the rug being
+       pulled. The intro reads the new target on its next frame. */
+    if (intro) {
+      intro.to = fittedAt = fitDistance();
+    } else if (!userZoomed && !flight) {
+      camera.position.setLength(fittedAt = fitDistance());
+    }
     invalidate();
   }
 
@@ -725,6 +825,14 @@ export async function createGlobe(canvas, handlers = {}) {
     setHighlight,
     focus,
     resize,
+
+    /** How far the camera currently sits from the centre of the globe, and the
+     *  distance at which the whole planet fits the clear area. The framing is
+     *  computed from the viewport, so the only way to check it held is to ask
+     *  what it came out as -- reproducing the formula in a test would only
+     *  prove the formula equals itself. */
+    get cameraDistance() { return camera.position.length(); },
+    get fittedDistance() { return fitDistance(); },
 
     /** Stop the loop and release the GL context. Nothing calls this today --
      *  the globe lives as long as the page -- but tearing down a WebGL scene

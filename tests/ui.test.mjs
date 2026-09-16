@@ -1254,6 +1254,93 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
   await page.close();
 }
 
+/* ============================================ 9. O globo cabe na tela ===== */
+console.log('\n=== UI: o planeta inteiro cabe, em qualquer tela ===');
+{
+  /* A distancia da camera era um numero fixo, e numero fixo nao existe que
+     sirva a um laptop de 768px e a um monitor de 1440p ao mesmo tempo: o que
+     estava ali cortava os polos em todo tamanho de desktop que medimos. Agora
+     ela e calculada, entao o que este teste protege e a conta -- em varias
+     telas, porque o proximo a mexer aqui vai ter apenas uma. */
+  const telas = [
+    ['1919x1079', 1919, 1079],   // a tela que reportou o corte
+    ['1366x768', 1366, 768],     // o laptop mais apertado que vale suportar
+    ['2560x1440', 2560, 1440],
+    ['1280x720', 1280, 720],
+  ];
+
+  for (const [nome, w, h] of telas) {
+    const { page, errors } = await open(w, h);
+    /* Esperar o voo de entrada pousar: ele leva 1.9s e so depois a camera esta
+       na distancia final. */
+    await page.waitForTimeout(2600);
+
+    /* Le a distancia em que a camera de fato parou -- nao a formula recalculada
+       aqui, que so provaria que ela e igual a si mesma. */
+    const m = await page.evaluate(() => {
+      const c = document.querySelector('canvas');
+      const r = c.getBoundingClientRect();
+      const caixa = (sel) => {
+        const el = document.querySelector(sel);
+        if (!el) return null;
+        const b = el.getBoundingClientRect();
+        if (b.left > r.width || b.right < 0) return null;   // gaveta fechada
+        return { esq: b.left, dir: b.right, topo: b.top, base: b.bottom, w: b.width, h: b.height };
+      };
+      return {
+        canvas: { w: r.width, h: r.height },
+        railL: caixa('.rail-left'), railR: caixa('.rail-right'),
+        top: caixa('.topbar'), time: caixa('.timeline'),
+        distancia: window.__orbisGlobe?.cameraDistance ?? null,
+      };
+    });
+
+    check(`${nome}: a distancia da camera e legivel`, typeof m.distancia === 'number', String(m.distancia));
+
+    /* Uma esfera de raio 1 a distancia d ocupa, em pixels de altura de canvas,
+       (h/2) / (d * tan(fov/2)). O fov de 36 e do modulo e nao muda com a tela. */
+    const FOV = 36;
+    const meioFov = Math.tan((FOV * Math.PI / 180) / 2);
+    const utilW = Math.max(240, m.canvas.w - (m.railL?.w ?? 0) - (m.railR?.w ?? 0));
+    const utilH = Math.max(240, m.canvas.h - (m.top?.h ?? 0) - (m.time?.h ?? 0));
+    const d = m.distancia ?? 0;
+
+    const raioPx = (m.canvas.h / 2) / (d * meioFov);
+    const cx = m.canvas.w / 2, cy = m.canvas.h / 2;
+    const folga = {
+      topo: (cy - raioPx) - (m.top?.base ?? 0),
+      base: (m.time?.topo ?? m.canvas.h) - (cy + raioPx),
+      esq: (cx - raioPx) - (m.railL?.dir ?? 0),
+      dir: (m.railR?.esq ?? m.canvas.w) - (cx + raioPx),
+    };
+
+    const invade = Object.entries(folga).filter(([, v]) => v < 0);
+    check(`${nome}: o globo nao e cortado nem passa sob as rails`,
+      invade.length === 0,
+      invade.map(([k, v]) => `${k} ${Math.round(v)}px`).join(', '));
+    /* E o contrario tambem importa: um globo minusculo tecnicamente "cabe". */
+    check(`${nome}: e ainda ocupa a area livre`,
+      raioPx * 2 > Math.min(utilW, utilH) * 0.72,
+      `diametro ${Math.round(raioPx * 2)}px em area util ${Math.round(utilW)}x${Math.round(utilH)}`);
+    check(`${nome}: sem erro de JS`, errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+
+  /* Telas estreitas nao tentam encaixar o planeta: ali a rail empilha embaixo e
+     a faixa que sobra tem poucas centenas de pixels, entao caber inteiro pediria
+     uma distancia de ~10 e o globo viraria uma bolinha no topo. O que este teste
+     protege e que a distancia continue numa faixa em que se ve a curvatura --
+     nem colado, nem longe demais. */
+  for (const [nome, w, h] of [['telefone 390x844', 390, 844], ['tablet 820x1180', 820, 1180]]) {
+    const { page, errors } = await open(w, h);
+    await page.waitForTimeout(2600);
+    const d = await page.evaluate(() => window.__orbisGlobe?.cameraDistance ?? 0);
+    check(`${nome}: o globo fica a uma distancia legivel`, d >= 4.0 && d <= 5.2, `d=${d.toFixed(2)}`);
+    check(`${nome}: sem erro de JS`, errors.length === 0, errors.join(' | '));
+    await page.close();
+  }
+}
+
 console.log(`\n${passes} passaram, ${fails} falharam\n`);
 await browser.close();
 shutdown();
