@@ -644,8 +644,11 @@ function buildMetricPreview(event) {
     fragment.append(value);
   } else if (event.forecast !== null) {
     const value = document.createElement('span');
-    value.style.opacity = '0.7';
-    value.textContent = formatValue(event.forecast, event.unit);
+    // A forecast is marked by the tilde and by its own colour, never by fading
+    // the text: partial opacity dropped this to 3.42:1, and a number nobody
+    // can read is not a softer number, it is a missing one.
+    value.className = 'is-forecast';
+    value.textContent = `~${formatValue(event.forecast, event.unit)}`;
     fragment.append(value);
   }
 

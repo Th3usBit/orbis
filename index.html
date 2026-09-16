@@ -24,6 +24,18 @@
 <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><circle cx='16' cy='16' r='13' fill='none' stroke='%234da3ff' stroke-width='2'/><ellipse cx='16' cy='16' rx='5.5' ry='13' fill='none' stroke='%234da3ff' stroke-width='1.4' opacity='.7'/><path d='M3.6 12h24.8M3.6 20h24.8' stroke='%234da3ff' stroke-width='1.4' opacity='.7'/></svg>">
 <!-- Everything the page needs is served from this repository: no CDN, no
      font service, no request leaves the origin. See vendor/README.md. -->
+<!-- Start the four files the first paint waits on before the parser reaches
+     the stylesheet and the module graph that ask for them. Only the latin
+     subsets: the -ext faces cover characters EN/PT/ES almost never use, and
+     preloading them would spend the parallelism on bytes nobody renders.
+     crossorigin is required even same-origin -- fonts are fetched in CORS mode,
+     and without it the preload is discarded and the file downloads twice.
+     Deliberately NOT data/calendar.json: loadData() appends ?v=<minute>
+     (js/store.js), so a preload URL could never match the fetch. -->
+<link rel="preload" as="font" type="font/woff2" crossorigin href="vendor/fonts/inter-latin.woff2">
+<link rel="preload" as="font" type="font/woff2" crossorigin href="vendor/fonts/jetbrains-mono-latin.woff2">
+<link rel="preload" as="fetch" crossorigin href="assets/land-dots.json">
+<link rel="preload" as="fetch" crossorigin href="assets/borders.json">
 <link rel="stylesheet" href="vendor/fonts.css">
 <link rel="stylesheet" href="css/orbis.css">
 
@@ -146,7 +158,10 @@
       <h2 class="card-title" data-i18n="next_high">Next high-impact release</h2>
       <div class="next-body">
         <div class="next-when">
-          <span class="next-countdown" id="next-countdown">--:--:--</span>
+          <!-- role=timer carries an implicit aria-live of "off". It documents
+               that this is a running clock and stops anyone from later adding
+               aria-live here, which would announce a new time every second. -->
+          <span class="next-countdown" id="next-countdown" role="timer">--:--:--</span>
           <span class="next-date" id="next-date"></span>
         </div>
         <button type="button" class="next-event" id="next-event">

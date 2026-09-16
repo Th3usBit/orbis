@@ -211,7 +211,18 @@ console.log('\n=== UI: contraste medido em pixels ===');
         if (c && c !== 'rgba(0, 0, 0, 0)') { bg = over(c, bg); break; }
         p = p.parentElement;
       }
-      const fg = s.color.match(/\d+/g).slice(0, 3).map(Number);
+      let fg = s.color.match(/\d+/g).slice(0, 3).map(Number);
+      /* Partial opacity was the blind spot: `opacity: 0.7` on a span leaves
+         getComputedStyle().color reporting the full-strength colour, so a
+         3.42:1 value was being measured as 5.88:1 and passing. Opacity applies
+         to the element as a whole, ancestors included, so walk up and
+         composite every factor over the background actually behind it. */
+      let alpha = 1;
+      for (let q = el; q && q !== document.documentElement; q = q.parentElement) {
+        const o = parseFloat(getComputedStyle(q).opacity);
+        if (o < 1) alpha *= o;
+      }
+      if (alpha < 1) fg = over(`rgba(${fg.join(',')},${alpha})`, bg);
       const px = parseFloat(s.fontSize), bold = Number(s.fontWeight) >= 700;
       const need = (px >= 24 || (px >= 18.66 && bold)) ? 3 : 4.5;
       const got = ratio(lum(`rgb(${fg})`), lum(`rgb(${bg})`));

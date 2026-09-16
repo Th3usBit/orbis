@@ -23,6 +23,13 @@ const MAX_PULSES = 24;
 const IDLE_BEFORE_SPIN = 4200;
 const DEG = Math.PI / 180;
 
+/* How the selected country stands out from its neighbours. Allocated once:
+   composeMarkers() runs over every marker and must not build objects in the
+   loop. */
+const HIGHLIGHT_LIFT = 1.35;   // pillar height multiplier
+const HIGHLIGHT_HEAD = 1.6;    // head radius multiplier
+const HIGHLIGHT_TINT = new THREE.Color(0xffffff);
+
 /* ------------------------------------------------------------------ maths */
 
 export function latLonToVector3(lat, lon, radius = RADIUS) {
@@ -127,7 +134,14 @@ const DOTS_FRAG = /* glsl */`
     if (dist > 0.25) discard;
 
     float edge = smoothstep(0.25, 0.06, dist);
-    float daylight = smoothstep(-0.18, 0.38, dot(normalize(vNormalW), normalize(uSun)));
+    // The night side never reaches zero: pillars use MeshBasicMaterial and are
+    // lit the same everywhere, so a continent that fades out leaves a coloured
+    // marker floating over nothing recognisable. Half the day's releases land
+    // on the dark half, always. The floor puts a night dot at 4.32:1 against
+    // the ocean -- above the 3:1 a graphic object needs to read at all.
+    // Deliberately only the land: the ocean still darkens completely, and that
+    // difference is what keeps the terminator visible.
+    float daylight = 0.34 + 0.66 * smoothstep(-0.18, 0.38, dot(normalize(vNormalW), normalize(uSun)));
 
     gl_FragColor = vec4(mix(uNight, uDay, daylight), edge);
     #include <colorspace_fragment>
@@ -358,12 +372,21 @@ export async function createGlobe(canvas, handlers = {}) {
 
   function setMarkers(list) {
     markerData = list.slice(0, MAX_MARKERS);
+    composeMarkers();
+  }
 
+  // Split out from setMarkers so selecting a country can redraw the pillars
+  // without the store having to hand the same list back. The selected country
+  // grows and pales; everything else keeps its impact colour.
+  function composeMarkers() {
     const colorHolder = new THREE.Color();
 
     markerData.forEach((marker, index) => {
       const normal = latLonToVector3(marker.lat, marker.lon, 1).normalize();
-      const height = markerHeight(marker);
+      const picked = highlighted != null && marker.code === highlighted;
+      // The head sits on top of the pillar, so it has to be lifted by the same
+      // height the pillar was scaled to -- otherwise it floats off the tip.
+      const height = markerHeight(marker) * (picked ? HIGHLIGHT_LIFT : 1);
 
       scratch.quat.setFromUnitVectors(scratch.up, normal);
 
@@ -374,14 +397,26 @@ export async function createGlobe(canvas, handlers = {}) {
       );
       markers.setMatrixAt(index, scratch.matrix);
 
+      // How many releases a country has rides on the head, not on the pillar:
+      // the pillar is calibrated so impact dominates (see markerHeight), and
+      // widening its base would collide with neighbours -- Austria and Slovakia
+      // sit 0.0087 apart on a base already 0.029 wide. The head is at the tip,
+      // clear of the surface, and already draws additively. Capped low on
+      // purpose: the busiest country-day in the real feed is 45 events, and
+      // past a quarter again the head stops reading as a marker.
+      const bulk = 1 + Math.min(Math.log10(marker.count + 1) * 0.16, 0.26);
+      const headScale = (marker.maxImpact >= 3 ? 1.15 : 0.8) * bulk * (picked ? HIGHLIGHT_HEAD : 1);
       scratch.matrix.compose(
         normal.clone().multiplyScalar(RADIUS * 0.998 + height),
         scratch.quat,
-        new THREE.Vector3(1, 1, 1).multiplyScalar(marker.maxImpact >= 3 ? 1.15 : 0.8),
+        new THREE.Vector3(1, 1, 1).multiplyScalar(headScale),
       );
       heads.setMatrixAt(index, scratch.matrix);
 
       colorHolder.set(IMPACT_COLORS[marker.maxImpact] ?? IMPACT_COLORS[1]);
+      // Static emphasis, never a pulse: a pulse already means "release within
+      // the hour", and two moving signals on one globe cannot be told apart.
+      if (picked) colorHolder.lerp(HIGHLIGHT_TINT, 0.45);
       markers.setColorAt(index, colorHolder);
       heads.setColorAt(index, colorHolder);
     });
@@ -472,7 +507,7 @@ export async function createGlobe(canvas, handlers = {}) {
   function setHighlight(code) {
     if (code === highlighted) return;
     highlighted = code;
-    invalidate();
+    composeMarkers();   // also invalidates
   }
 
   /* --- pointer ------------------------------------------------------------ */
