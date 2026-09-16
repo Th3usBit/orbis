@@ -110,12 +110,20 @@ const check = (name, ok, detail = '') => {
   ok ? passes++ : fails++;
 };
 
+/* How long a boot may take before we call it broken. #shell only unhides once
+   everything is up: 549KB of calendar parsed, the globe geometry loaded, and a
+   WebGL context with its shaders compiled. Playwright's 30s default is a bet on
+   how fast the runner is, and on a loaded one WebKit lost it -- a reload timed
+   out on a run where every other engine passed. The condition is right, the
+   budget was not, so it is named here and used by every wait for a boot. */
+const BOOT_TIMEOUT = 60000;
+
 const open = async (w = 1440, h = 900, tz = 'America/Sao_Paulo', reducedMotion = 'no-preference') => {
   const page = await browser.newPage({ viewport: { width: w, height: h }, timezoneId: tz, reducedMotion });
   const errors = [];
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
   /* The rail is laid out in a webfont that arrives after first paint, and the
      cards are sized by their text, so every height measured before the swap is
      a measurement of the fallback font. That is a real 7px of rail overflow
@@ -819,7 +827,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
     if (r.url().includes('noto-color-emoji')) pedidos.push(r.url());
   });
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])');
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
   await page.waitForTimeout(2500);
   const depois = await medir();
 
@@ -854,7 +862,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
     };
   });
   await page.goto(URL, { waitUntil: 'load' });
-  const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: 40000 })
+  const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT })
     .then(() => true).catch(() => false);
   await page.waitForTimeout(1500);
   const linhas = await page.evaluate(() => document.querySelectorAll('#event-list .event').length);
@@ -901,7 +909,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
   await page.clock.setSystemTime(new Date(quieto));
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
 
   /* A entrada do globo dura ~1.9s e o damping continua depois dela; so vale
      medir repouso quando tudo isso acabou. */
@@ -984,7 +992,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
   const erros = [];
   page.on('pageerror', (e) => erros.push(String(e).slice(0, 160)));
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
   await page.waitForTimeout(3000);
 
   const suportado = await page.evaluate(() => {
@@ -1055,7 +1063,7 @@ console.log('\n=== UI: as bandeiras dos paises ===');
 {
   const page = await browser.newPage({ viewport: { width: 1280, height: 800 } });
   await page.goto(URL, { waitUntil: 'networkidle' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
   await page.waitForTimeout(2500);
 
   /* O que o codigo le e document.hidden, e nenhuma API do Playwright esconde
@@ -1187,7 +1195,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
     !/impact|region|category/.test(antes.url), antes.url);
 
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])');
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
   await page.waitForTimeout(2500);
   const depois = await page.evaluate(() => ({
     pressionados: [...document.querySelectorAll('#filter-impact [aria-pressed]')]
@@ -1205,7 +1213,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
   await page.locator('#panel-reset').click();
   await page.waitForTimeout(500);
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])');
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
   await page.waitForTimeout(2500);
   const limpo = await page.evaluate(() => ({
     escondido: document.getElementById('filters-badge').hidden,
@@ -1227,7 +1235,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
   const erros = [];
   page.on('pageerror', (e) => erros.push(String(e).slice(0, 160)));
   await page.goto(URL, { waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 });
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
 
   for (const lixo of [
     '{"impact":[]}',                              // um set vazio e uma tela vazia
@@ -1238,7 +1246,7 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
   ]) {
     await page.evaluate((v) => localStorage.setItem('orbis.filters', v), lixo);
     await page.reload({ waitUntil: 'load' });
-    const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: 30000 })
+    const subiu = await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT })
       .then(() => true).catch(() => false);
     await page.waitForTimeout(2000);
     const r = await page.evaluate(() => ({
