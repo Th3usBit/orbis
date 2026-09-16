@@ -67,10 +67,12 @@ html, body {
 
 button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
 
+/* No border-radius here on purpose: the outline already follows whatever
+   radius the focused element has. A fixed 4px was overriding that, so the ring
+   cut the corners of the 8px chips and of the pill-shaped timeline controls. */
 :focus-visible {
   outline: 2px solid var(--accent);
   outline-offset: 2px;
-  border-radius: 4px;
 }
 
 /* --------------------------------------------------------------------------
@@ -862,6 +864,8 @@ body::after {
 }
 .event-metric .is-up { color: var(--up); }
 .event-metric .is-down { color: var(--down); }
+/* Not yet released: the tilde carries the meaning, the colour stays readable. */
+.event-metric .is-forecast { color: var(--ink-faint); }
 
 /* --- Expanded detail ------------------------------------------------------ */
 
@@ -1012,7 +1016,11 @@ body::after {
   line-height: 1;
 }
 .tl-day.is-today .tl-num { color: var(--accent); font-weight: 700; }
-.tl-day.is-weekend .tl-dow { color: rgba(125, 155, 195, 0.35); }
+/* Weight, not colour: at 1.81:1 the old alpha was below anything legible, and
+   this is the only thing that says "Saturday" in the whole timeline. Same
+   reasoning as the "off" filter rows and past events elsewhere in this file --
+   dimming hurts the people who most need to read it. Now 5.45:1. */
+.tl-day.is-weekend .tl-dow { color: var(--ink-faint); font-weight: 600; }
 
 /* Stacked micro-bar: the day's event load, by impact. */
 .tl-bar { display: flex; flex-direction: column-reverse; width: 100%; height: 21px; gap: 1px; justify-content: flex-start; }
@@ -1062,6 +1070,10 @@ body::after {
 .tooltip-row i { width: 5px; height: 5px; border-radius: 50%; background: currentColor; flex: none; }
 .tooltip-more { margin-top: 4px; font-size: 9.5px; color: var(--ink-faint); letter-spacing: 0.05em; }
 
+/* The one line that teaches the interaction, and it used to sit straight on
+   the globe at 1.48:1 -- over the lit half it disappeared, and since the globe
+   turns, it blinked in and out as you read it. Same surface the tooltip
+   already uses, so this introduces no new material. */
 .hint {
   position: fixed;
   left: 50%;
@@ -1071,7 +1083,12 @@ body::after {
   font-size: 10px;
   letter-spacing: 0.13em;
   text-transform: uppercase;
-  color: var(--ink-faint);
+  color: var(--ink-dim);
+  background: rgba(6, 9, 16, 0.93);
+  backdrop-filter: blur(14px);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
   pointer-events: none;
   transition: opacity 600ms ease;
 }
@@ -1178,7 +1195,13 @@ body::after {
 
   .timeline { gap: 5px; padding: 6px; }
   .tl-today { padding: 0 9px; }
-  .tl-day { min-width: 30px; }
+  /* The prev/next arrows are the precise way to move one day at a time, and
+     they were the same 30px as the cells they exist to be an alternative to.
+     The day cells keep their base 34px min-width -- widening them further fits
+     fewer days on screen, which costs more than it buys; what they needed was
+     separation, so the gap grows instead. */
+  .tl-step { width: 44px; }
+  .tl-track { gap: 6px; }
 }
 
 @media (prefers-reduced-motion: reduce) {
