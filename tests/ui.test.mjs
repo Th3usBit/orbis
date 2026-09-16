@@ -1195,7 +1195,36 @@ console.log('\n=== UX: os filtros sobrevivem a um reload ===');
     !/impact|region|category/.test(antes.url), antes.url);
 
   await page.reload({ waitUntil: 'load' });
-  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT });
+  /* This reload is where WebKit hangs on CI and nowhere else: 60s with #shell
+     never unhiding, while the same page boots in 300ms on a desktop GPU and
+     survives repeated context loss locally. A bare timeout only says "it did
+     not happen", so on the way out ask the page what it was still waiting for
+     -- whether the globe module got a WebGL context at all, whether its
+     geometry fetches resolved, what the boot left on screen. Remove once the
+     cause is known. */
+  await page.waitForSelector('#shell:not([hidden])', { timeout: BOOT_TIMEOUT })
+    .catch(async (erro) => {
+      const estado = await page.evaluate(() => {
+        const canvas = document.querySelector('canvas');
+        let contexto = 'sem canvas';
+        if (canvas) {
+          try { contexto = (canvas.getContext('webgl2') || canvas.getContext('webgl')) ? 'obtido' : 'NULO'; }
+          catch (e) { contexto = 'erro: ' + e.message; }
+        }
+        return {
+          shellHidden: document.getElementById('shell')?.hidden,
+          globoCriado: !!window.__orbisGlobe,
+          contexto,
+          readyState: document.readyState,
+          recursos: performance.getEntriesByType('resource')
+            .filter((r) => /land-dots|borders|calendar|countries/.test(r.name))
+            .map((r) => `${r.name.split('/').pop()}=${Math.round(r.duration)}ms`),
+          textoVisivel: (document.body.innerText || '').replace(/\s+/g, ' ').slice(0, 140),
+        };
+      }).catch((e) => `nao consegui avaliar: ${e.message}`);
+      console.log('  DIAGNOSTICO do boot travado:', JSON.stringify(estado));
+      throw erro;
+    });
   await page.waitForTimeout(2500);
   const depois = await page.evaluate(() => ({
     pressionados: [...document.querySelectorAll('#filter-impact [aria-pressed]')]
