@@ -31,7 +31,13 @@ def fetch(window, country_codes: set[str]) -> list[dict]:
     if not isinstance(rows, list):
         return []
 
-    events: list[dict] = []
+    # Keyed by id, because one country can have two holidays on one date.
+    # Canada on 2026-11-11 is Remembrance Day in nine provinces and Armistice
+    # Day in Newfoundland, each a regional row of its own; both became
+    # hol:CA:2026-11-11, and the duplicate id failed the integrity checks in
+    # store.test and merge.test. It is one closed day either way, so the rows
+    # merge into one event that names both.
+    events: dict[str, dict] = {}
     for row in rows:
         code = (row.get("countryCode") or "").upper()
         date = row.get("date")
@@ -50,12 +56,22 @@ def fetch(window, country_codes: set[str]) -> list[dict]:
         name = (row.get("name") or "").strip()
         local_name = (row.get("localName") or "").strip()
 
-        events.append({
-            "id": f"hol:{code}:{date}",
+        key = f"hol:{code}:{date}"
+        title = name or local_name
+        if key in events:
+            known = events[key]
+            if title and title not in known["title"].split(" / "):
+                known["title"] = f"{known['title']} / {title}"
+            known["indicator"] = None
+            known["nationwide"] = known["nationwide"] or bool(row.get("global"))
+            continue
+
+        events[key] = {
+            "id": key,
             "ts": timestamp,
             "country": code,
             "currency": None,
-            "title": name or local_name,
+            "title": title,
             "indicator": local_name if local_name and local_name != name else None,
             "category": "holiday",
             "impact": 0,
@@ -69,6 +85,6 @@ def fetch(window, country_codes: set[str]) -> list[dict]:
             "source_url": HOMEPAGE,
             "all_day": True,
             "nationwide": bool(row.get("global")),
-        })
+        }
 
-    return events
+    return list(events.values())
