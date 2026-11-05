@@ -20,7 +20,6 @@ import { IMPACT_COLORS, REGION_COLOR } from './store.js';
 const RADIUS = 1;
 const MAX_MARKERS = 180;
 const MAX_PULSES = 24;
-const IDLE_BEFORE_SPIN = 4200;
 const DEG = Math.PI / 180;
 
 /* How the selected country stands out from its neighbours. Allocated once:
@@ -245,12 +244,15 @@ export async function createGlobe(canvas, handlers = {}) {
   controls.zoomSpeed = 0.7;
   controls.minDistance = 1.45;
   controls.maxDistance = 6.5;
-  controls.autoRotateSpeed = 0.22;
 
-  // A globe that spins on its own is exactly what prefers-reduced-motion is
-  // asking about, and CSS cannot reach a WebGL scene. Read it live: the viewer
-  // may flip the setting with the page already open.
-  const stillness = window.matchMedia?.('(prefers-reduced-motion: reduce)');
+  /* No idle spin, on purpose. There was one, and it never ran: OrbitControls
+     fires 'change' for its own auto-rotation exactly as it does for a drag,
+     and the handler took that as the viewer touching the globe, so the spin
+     cancelled itself on its first frame and advanced one step every 4.2 s.
+     Mended, it kept the loop drawing forever and broke the rest budget in
+     tests/ui.test.mjs. The globe moves when the viewer moves it, when a flight
+     takes it somewhere, or when the sun does -- motion that carries data, and
+     nothing that only decorates. */
 
   const world = new THREE.Group();
   scene.add(world);
@@ -358,7 +360,6 @@ export async function createGlobe(canvas, handlers = {}) {
   let markerData = [];
   let highlighted = null;
   let hovered = null;
-  let lastInteraction = performance.now();
   let flight = null;
   /* `to` is a placeholder: resize() runs before the first frame and replaces it
      with the distance that actually fits this viewport. */
@@ -381,12 +382,10 @@ export async function createGlobe(canvas, handlers = {}) {
   const invalidate = (n = 2) => { owedFrames = Math.max(owedFrames, n); };
 
   controls.addEventListener('start', () => {
-    lastInteraction = performance.now();
     canvas.classList.add('is-dragging');
     intro = null;
   });
   controls.addEventListener('change', () => {
-    lastInteraction = performance.now();
     /* Rotating keeps the distance; zooming changes it. Only the second one
        means the viewer has chosen their own framing, so only that one stops
        resize() from re-fitting. A flight sets the distance itself and must not
@@ -722,7 +721,6 @@ export async function createGlobe(canvas, handlers = {}) {
     pending = requestAnimationFrame(frame);
 
     const delta = Math.min(clock.getDelta(), 0.1);
-    const now = performance.now();
 
     // Opening move: ease the camera in from far orbit, once.
     if (intro) {
@@ -744,13 +742,7 @@ export async function createGlobe(canvas, handlers = {}) {
       camera.position.copy(flight.from.clone().applyQuaternion(step).multiplyScalar(distance));
 
       if (t >= 1) flight = null;
-      lastInteraction = now;
     }
-
-    // Idle spin, suspended whenever the viewer is doing something.
-    controls.autoRotate = !stillness?.matches
-      && !flight && !intro && !highlighted && !hovered
-      && (now - lastInteraction > IDLE_BEFORE_SPIN);
 
     // Ease the sun toward its target so scrubbing days sweeps the terminator.
     sun.current.lerp(sun.target, Math.min(delta * 2.6, 1)).normalize();
@@ -773,7 +765,7 @@ export async function createGlobe(canvas, handlers = {}) {
     // show a still image. Anything that changes the scene calls invalidate()
     // and the loop picks straight back up.
     const sunSettled = sun.current.manhattanDistanceTo(sun.target) < SUN_EPSILON;
-    const busy = damping || controls.autoRotate || flight || intro
+    const busy = damping || flight || intro
       || pulseCount > 0 || !sunSettled;
 
     if (busy) owedFrames = 1;
@@ -821,7 +813,6 @@ export async function createGlobe(canvas, handlers = {}) {
      was open. */
   const onVisibility = () => {
     if (document.hidden) return;          // frame() bails on its own
-    lastInteraction = performance.now();  // no idle spin the instant we return
     invalidate();
     if (running && !contextLost && !pending) frame();
   };
