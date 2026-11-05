@@ -7,8 +7,6 @@ assets/land-dots.json
 assets/borders.json
 # The link preview, rendered from the live page at deploy time.
 assets/social.png
-# The README's clips and cards, filmed and drawn from the live data at deploy.
-assets/readme/
 
 # --- Python --------------------------------------------------------------
 __pycache__/

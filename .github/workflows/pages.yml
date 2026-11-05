@@ -53,9 +53,7 @@ concurrency:
 jobs:
   deploy:
     runs-on: ubuntu-latest
-    # The README clips are filmed frame by frame on a runner with no GPU,
-    # which is most of this budget; the deploy itself takes about a minute.
-    timeout-minutes: 30
+    timeout-minutes: 10
     environment:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
@@ -108,20 +106,6 @@ jobs:
           cd "$GITHUB_WORKSPACE"
           export PLAYWRIGHT_PATH="$RUNNER_TEMP/pw/node_modules/playwright/index.mjs"
           node scripts/social_card.mjs .
-
-      # The README shows the product as it is right now: clips of the real
-      # page, filmed in Portuguese against this run's calendar.json and
-      # published next to the site under assets/readme/. Like the social card
-      # it is decoration -- it never fails a deploy. Every artefact is a full
-      # rebuild, so a run where this breaks publishes without them and the
-      # README falls back to its alt text until the next one.
-      - name: Film the README clips
-        continue-on-error: true
-        timeout-minutes: 20
-        run: |
-          command -v ffmpeg >/dev/null || { sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg >/dev/null; }
-          export PLAYWRIGHT_PATH="$RUNNER_TEMP/pw/node_modules/playwright/index.mjs"
-          node scripts/readme_media.mjs .
 
       # GitHub Pages serves CSS and JS with max-age=600, so a viewer who
       # visited in the last ten minutes gets the old stylesheet against the new
