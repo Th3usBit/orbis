@@ -120,9 +120,27 @@ def _inside(lon: float, lat: float, rings: list[list[list[float]]]) -> bool:
 # Builders
 # --------------------------------------------------------------------------
 
+def _unwrap(rings: list[list[list[float]]]) -> list[list[list[float]]]:
+    """Move a ring that crosses the antimeridian onto one continuous range.
+
+    Fiji's ring runs 178.6 -> 179.4 -> -180 -> -179.8 and back: in plain
+    longitudes it is a sliver 1.6 degrees wide whose bounding box claims the
+    whole planet, and ray casting along that box filled the entire parallel at
+    16.4 S with land -- 299 dots drawn as a ring across every ocean. Shifting
+    the western half by +360 makes it the sliver it is.
+
+    Only when that actually narrows the ring: Antarctica spans 360 degrees
+    either way, because it really does go all the way round.
+    """
+    shifted = [[[x + 360 if x < 0 else x, y] for x, y in ring] for ring in rings]
+    before = _bbox(rings)
+    after = _bbox(shifted)
+    return shifted if after[2] - after[0] < before[2] - before[0] - 1 else rings
+
+
 def build_land_dots(topology: dict) -> dict:
     """Equal-area dot matrix: dots per row scale with cos(latitude)."""
-    polygons = [(rings, _bbox(rings)) for _, rings in topo_to_polygons(topology, "land")]
+    polygons = [(r, _bbox(r)) for r in (_unwrap(rings) for _, rings in topo_to_polygons(topology, "land"))]
     print(f"  land polygons: {len(polygons)}")
 
     lons: list[int] = []
@@ -139,11 +157,14 @@ def build_land_dots(topology: dict) -> dict:
 
         for col in range(columns):
             lon = -180 + col * (360 / columns)
-            for rings, (minx, miny, maxx, maxy) in polygons:
-                if minx <= lon <= maxx and miny <= lat <= maxy and _inside(lon, lat, rings):
-                    lons.append(round(lon * 100))
-                    lats.append(round(lat * 100))
-                    break
+            # lon + 360 reaches the rings _unwrap() moved past 180.
+            if any(
+                minx <= x <= maxx and miny <= lat <= maxy and _inside(x, lat, rings)
+                for rings, (minx, miny, maxx, maxy) in polygons
+                for x in (lon, lon + 360)
+            ):
+                lons.append(round(lon * 100))
+                lats.append(round(lat * 100))
 
     print(f"  land dots: {len(lons)}")
     # Parallel int arrays scaled by 100 keep the payload small and gzip well.
