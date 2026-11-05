@@ -109,17 +109,12 @@ jobs:
           export PLAYWRIGHT_PATH="$RUNNER_TEMP/pw/node_modules/playwright/index.mjs"
           node scripts/social_card.mjs .
 
-      # The README is the product's front door, and it shows the product as it
-      # is right now: animated cards drawn from this run's calendar.json and
-      # clips of the real page filmed in Portuguese, both published next to
-      # the site under assets/readme/. Like the social card it is decoration
-      # for the deploy -- it never fails one. Every artefact is a full rebuild,
-      # so a run where this breaks publishes without them: the README falls
-      # back to its alt text for three hours and the site is untouched.
-      - name: Draw the README cards
-        continue-on-error: true
-        run: python scripts/readme_cards.py .
-
+      # The README shows the product as it is right now: clips of the real
+      # page, filmed in Portuguese against this run's calendar.json and
+      # published next to the site under assets/readme/. Like the social card
+      # it is decoration -- it never fails a deploy. Every artefact is a full
+      # rebuild, so a run where this breaks publishes without them and the
+      # README falls back to its alt text until the next one.
       - name: Film the README clips
         continue-on-error: true
         timeout-minutes: 20

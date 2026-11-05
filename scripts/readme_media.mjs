@@ -24,7 +24,7 @@
 import { spawn, spawnSync } from 'node:child_process';
 import { pathToFileURL } from 'node:url';
 import path from 'node:path';
-import { copyFile, mkdir, mkdtemp, rm, stat } from 'node:fs/promises';
+import { copyFile, mkdir, mkdtemp, readFile, rm, stat } from 'node:fs/promises';
 import os from 'node:os';
 
 const ROOT = path.resolve(process.argv[2] ?? '.');
@@ -33,9 +33,9 @@ const PORT = Number(process.env.ORBIS_PORT ?? 8352);
 const SITE = process.env.ORBIS_SITE ?? `http://127.0.0.1:${PORT}/`;
 const ONLY = (process.env.ORBIS_CLIPS ?? '').split(',').filter(Boolean);
 
-/* Largura final no README. A coluna de conteúdo do GitHub tem 880 px úteis
-   no desktop; 960 dá nitidez em tela retina sem dobrar o peso do arquivo. */
-const OUT_WIDTH = 960;
+/* A coluna do README tem ~880 px no desktop. Cada clipe é filmado a 2x e
+   recortado no recurso que mostra -- a primeira versão filmava a tela inteira
+   e encolhia, e nenhum texto dava para ler. */
 const FPS = 15;
 
 // --- ferramentas -----------------------------------------------------------
@@ -124,7 +124,7 @@ const CURSOR = `
  * Nada muda nos dados: o relógio começa em "agora", então o dia, o
  * terminador e a contagem regressiva são os de verdade.
  */
-function film(page, dir = null) {
+function film(page, dir = null, clip = undefined) {
   let n = 0;
   let cursor = { x: -200, y: -200 };
 
@@ -132,7 +132,7 @@ function film(page, dir = null) {
     if (!dir) return;  // aquecimento: a página anda, ninguém fotografa
     const file = path.join(dir, `${String(n).padStart(5, '0')}.jpg`);
     n += 1;
-    await page.screenshot({ path: file, type: 'jpeg', quality: 90, animations: 'allow', timeout: 120000 });
+    await page.screenshot({ path: file, type: 'jpeg', quality: 90, animations: 'allow', clip, timeout: 120000 });
   }
 
   async function tick() {
@@ -218,12 +218,12 @@ function film(page, dir = null) {
 }
 
 /** Quadros em disco → WebP animado. */
-async function encode(name, dir, width) {
+async function encode(name, dir, width, quality = 60) {
   const out = path.join(OUT, `${name}.webp`);
   const run = spawnSync('ffmpeg', [
     '-y', '-loglevel', 'error', '-framerate', String(FPS), '-i', path.join(dir, '%05d.jpg'),
     '-vf', `scale=${width}:-2:flags=lanczos`,
-    '-c:v', 'libwebp_anim', '-quality', '60', '-compression_level', '6',
+    '-c:v', 'libwebp_anim', '-quality', String(quality), '-compression_level', '6',
     '-loop', '0', '-an', out,
   ], { stdio: ['ignore', 'inherit', 'inherit'] });
   if (run.status !== 0) throw new Error(`${name}: ffmpeg saiu com ${run.status}`);
@@ -238,10 +238,10 @@ const browser = await chromium.launch({
   args: ['--use-angle=swiftshader', '--enable-unsafe-swiftshader', '--ignore-gpu-blocklist'],
 });
 
-async function open({ width = 1280, height = 720, query = '', mobile = false } = {}) {
+async function open({ width = 1280, height = 720, query = '', mobile = false, hide = '' } = {}) {
   const context = await browser.newContext({
     viewport: { width, height },
-    deviceScaleFactor: mobile ? 2 : 1,
+    deviceScaleFactor: 2,
     isMobile: mobile,
     hasTouch: mobile,
     // UTC é o relógio do próprio orbis; pt-BR é o idioma do README. A página
@@ -257,22 +257,34 @@ async function open({ width = 1280, height = 720, query = '', mobile = false } =
   await page.goto(`${SITE}${query}`, { waitUntil: 'networkidle' });
   await page.waitForSelector('#shell:not([hidden])', { timeout: 90000 });
   await page.evaluate(() => document.getElementById('hint')?.remove());
+  if (hide) {
+    // Some com o que não é assunto do clipe. visibility, e não display: os
+    // painéis continuam ocupando o espaço deles, então a câmera enquadra o
+    // planeta exatamente como na página de verdade.
+    await page.addStyleTag({ content: `${hide}{visibility:hidden!important}` });
+  }
   await page.addScriptTag({ content: CURSOR });
   await page.clock.pauseAt(new Date(Date.now() + 1000));
   return { page, context };
 }
 
 /** Abre a página, deixa a câmera pousar fora do filme, roda o roteiro. */
-async function shoot(name, options, script, width = OUT_WIDTH) {
+async function shoot(name, options, script) {
   const { page, context } = await open(options);
   const dir = await mkdtemp(path.join(os.tmpdir(), `orbis-${name}-`));
+  const { crop } = options;
+  const width = options.out ?? 1320;
   try {
-    const f = film(page, dir);
+    const f = film(page, dir, crop && { x: crop[0], y: crop[1], width: crop[2], height: crop[3] });
     // O voo de abertura da câmera fica fora do filme: o clipe abre com o
     // globo já pousado.
     await film(page).hold(options.warmup ?? 6000);
+    if (options.before) {
+      await options.before(page);
+      await film(page).hold(1600);
+    }
     await script(f, page);
-    await encode(name, dir, width);
+    await encode(name, dir, width, options.quality);
     if (process.env.ORBIS_KEEP_FRAMES) {
       // Depuração: três quadros soltos para conferir o enquadramento.
       const keep = path.join(OUT, '_quadros');
@@ -288,78 +300,176 @@ async function shoot(name, options, script, width = OUT_WIDTH) {
   }
 }
 
+/**
+ * Para onde olhar para ver o dia e a noite ao mesmo tempo.
+ *
+ * O terminador fica a 90 graus do ponto subsolar, que anda 15 graus por hora.
+ * Dos dois lados possíveis, escolhe o que tem mais eventos por perto, para o
+ * clipe abrir com pilares e com a linha entre o dia e a noite no meio da tela.
+ * Calculado na hora da filmagem: cada deploy olha para um lugar diferente,
+ * porque o sol também está num lugar diferente.
+ */
+async function terminatorView() {
+  const read = async (file) => JSON.parse(await readFile(path.join(ROOT, file), 'utf8'));
+  const calendar = await read('data/calendar.json');
+  const { countries } = await read('data/countries.json');
+  const now = new Date();
+  const hours = now.getUTCHours() + now.getUTCMinutes() / 60;
+  const sub = ((((12 - hours) * 15) + 540) % 360) - 180;
+  const wrap = (lon) => ((((lon + 180) % 360) + 360) % 360) - 180;
+  const near = (lon) => calendar.events.filter((e) => {
+    const c = countries[e.country];
+    if (!c) return false;
+    const d = Math.abs(wrap(c.lon - lon));
+    return d < 55;
+  }).length;
+  // A 90 graus: a linha entre o dia e a noite passa pelo meio do globo,
+  // com o lado aceso de um lado e a noite do outro.
+  const options = [wrap(sub + 90), wrap(sub - 90)];
+  const lon = near(options[0]) >= near(options[1]) ? options[0] : options[1];
+  return { lat: 28, lon };
+}
+
+const RAILS = '.topbar,.rail,.skip-link';
+
+/* Todos os clipes de desktop em 2:1, recortes em pixels CSS de uma janela
+   1280x720: [x, y, largura, altura]. A primeira versão misturava alturas de
+   490 a 900 px e a página não tinha ritmo. */
 const clips = {
-  /* Uma mão girando o globo: das Américas à Europa e à Ásia, e de volta
-     até o Atlântico.
-     O orbis não gira sozinho de propósito (ver o comentário em globe.js);
-     o que se move aqui é o que um visitante move. */
-  globo: () => shoot('globo', {}, async (f) => {
-    // Arrastar para a esquerda traz o leste para a frente.
+  /* O herói: o globo com o terminador no meio e a lista do dia ao lado --
+     um calendário, e não só um planeta. Uma mão gira devagar pela linha
+     entre o dia e a noite. O orbis não gira sozinho de propósito. */
+  globo: () => shoot('globo', {
+    crop: [292, 50, 988, 494],
+    out: 1100,
+    quality: 64,
+    before: async (page) => {
+      const { lat, lon } = await terminatorView();
+      await page.evaluate(([la, lo]) => {
+        const g = window.__orbisGlobe;
+        g.focus(la, lo, g.cameraDistance);
+      }, [lat, lon]);
+      // A lista abre no primeiro evento de alto impacto de um mercado que
+      // todo mundo acompanha, e não às 00:00 -- a mesma lista de madrugada
+      // aparecia em quatro clipes. Ela é montada aos poucos conforme rola,
+      // então desce em etapas até a linha existir.
+      for (let k = 0; k < 12; k += 1) {
+        const found = await page.evaluate(() => {
+          const list = document.getElementById('event-list');
+          const highs = [...list.querySelectorAll('.event')]
+            .filter((row) => [...row.querySelectorAll('*')].some((el) => el.style.color === 'rgb(255, 77, 109)'));
+          const big = highs.find((row) => /Estados Unidos|Zona do Euro|Reino Unido/.test(row.textContent));
+          if (!big) {
+            list.scrollTop += 900;
+            return false;
+          }
+          // 48 px de folga: o rótulo de horário gruda no topo da lista.
+          list.scrollTop += big.getBoundingClientRect().top - list.getBoundingClientRect().top - 48;
+          return true;
+        });
+        await page.clock.runFor(300);
+        if (found) break;
+      }
+    },
+  }, async (f) => {
     await f.hold(500);
-    await f.drag(740, 360, 520, 380, 1800);
-    await f.hold(1200);
-    await f.drag(740, 320, 540, 330, 1800);
-    await f.hold(1200);
-    await f.drag(500, 400, 800, 390, 2000);
+    await f.drag(700, 330, 560, 340, 2200);
+    await f.hold(800);
+    await f.drag(540, 300, 700, 310, 2200);
     await f.leave();
-    await f.hold(1400);
+    await f.hold(1200);
   }),
 
-  /* O cartão "próximo de alto impacto" leva a câmera até o país. */
-  voo: () => shoot('voo', {}, async (f) => {
+  /* O próximo evento de alto impacto: a câmera voa até o país e o evento
+     abre com efetivo, projeção e anterior. */
+  evento: () => shoot('evento', {
+    crop: [360, 46, 920, 460],
+    out: 1320,
+    // O voo acontece fora do filme: o clipe abre já no país, e não na mesma
+    // lista do dia que o herói mostra.
+    before: (page) => page.click('#next-event'),
+  }, async (f) => {
     await f.hold(500);
-    await f.click('#next-event');
-    await f.hold(2600);
     await f.click('#event-list button.event', 0);
-    await f.hold(2400);
+    await f.hold(2200);
+    await f.click('#event-list button.event', 1);
+    await f.hold(2200);
   }),
 
-  /* A linha do tempo: dia a dia, os pilares sobem e descem com a agenda. */
-  linha: () => shoot('linha', {}, async (f) => {
-    await f.hold(400);
-    for (let i = 0; i < 4; i += 1) {
-      await f.click('#tl-next');
-      await f.hold(600);
+  /* A faixa de quatro semanas e o globo respondendo a ela. Sem os painéis,
+     para a faixa ser o assunto. */
+  linha: () => shoot('linha', {
+    hide: `${RAILS},.rail-right`,
+    // Do meio do globo para baixo, com a faixa em quase um terço da altura:
+    // com o quadro inteiro, os rótulos dos dias ficavam com 6 px.
+    crop: [160, 260, 920, 460],
+    out: 1320,
+    // A câmera desce para o Atlântico Norte, para os pilares dos EUA e da
+    // Europa caírem dentro do recorte.
+    before: (page) => page.evaluate(() => {
+      const g = window.__orbisGlobe;
+      g.focus(52, -35, g.cameraDistance);
+    }),
+  }, async (f, page) => {
+    // Os próximos quatro dias úteis: um fim de semana sem agenda deixaria o
+    // globo vazio no meio do clipe.
+    const dias = await page.evaluate(() => {
+      const hoje = document.querySelector('.tl-day[aria-current], .tl-day.is-today')?.dataset.day ?? '';
+      return [...document.querySelectorAll('.tl-day')]
+        .map((el, i) => ({ i, d: el.dataset.day }))
+        .filter(({ d }) => d > hoje && ![0, 6].includes(new Date(`${d}T12:00:00Z`).getUTCDay()))
+        .slice(0, 4)
+        .map(({ i }) => i);
+    });
+    await f.hold(300);
+    for (const i of dias) {
+      await f.click('.tl-day', i);
+      await f.hold(700);
     }
     await f.click('#tl-today');
-    await f.hold(1400);
+    await f.hold(1200);
   }),
 
-  /* Filtros: só alto impacto, depois uma região, depois limpar. */
-  filtros: () => shoot('filtros', {}, async (f) => {
-    await f.hold(400);
+  /* Filtros: só alto impacto e o globo obedece. */
+  filtros: () => shoot('filtros', { crop: [0, 46, 940, 470], out: 1320 }, async (f) => {
+    await f.hold(300);
     // A ordem das linhas é a da escala: alto, médio, baixo, feriado.
     for (const i of [1, 2, 3]) {
       await f.click('#filter-impact > *', i);
-      await f.hold(350);
+      await f.hold(300);
     }
-    await f.hold(1200);
-    await f.click('#filter-region > *', 1);
-    await f.hold(1600);
+    await f.hold(1400);
     await f.click('#panel-reset');
-    await f.hold(1200);
+    await f.hold(1000);
   }),
 
-  /* Três idiomas, inclusive o nome de cada indicador e de cada país. */
-  idiomas: () => shoot('idiomas', { query: '?c=US' }, async (f) => {
-    await f.hold(600);
-    for (const lang of ['en', 'es', 'pt']) {
+  /* Três idiomas, no celular: o mesmo formato do clipe ao lado. */
+  idiomas: () => shoot('idiomas', {
+    width: 390, height: 780, mobile: true, out: 700,
+    // Abre em inglês, para o primeiro quadro já ser diferente do clipe ao lado.
+    before: (page) => page.click('.lang button[data-lang="en"]'),
+  }, async (f) => {
+    await f.hold(900);
+    for (const lang of ['es', 'pt']) {
       await f.click(`.lang button[data-lang="${lang}"]`);
       await f.hold(1300);
     }
   }),
 
-  /* No celular: o globo e os filtros que voltam por um botão. */
-  celular: () => shoot('celular', { width: 390, height: 780, mobile: true }, async (f) => {
-    await f.hold(1200);
-    await f.click('#filters-toggle');
-    await f.hold(1400);
+  /* No celular: os filtros que voltam por um botão. */
+  celular: () => shoot('celular', {
+    width: 390, height: 780, mobile: true, out: 700,
+    before: (page) => page.click('#filters-toggle'),
+  }, async (f) => {
+    await f.hold(900);
     await f.click('#filter-impact > *', 2);
-    await f.hold(1000);
+    await f.hold(700);
+    await f.click('#filter-impact > *', 1);
+    await f.hold(900);
     await f.click('#filters-toggle');
     await f.leave();
-    await f.hold(1800);
-  }, 360),
+    await f.hold(1500);
+  }),
 };
 
 await mkdir(OUT, { recursive: true });
