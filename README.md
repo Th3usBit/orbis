@@ -13,11 +13,13 @@ O calendário econômico do mundo em um globo 3D. Indicadores, decisões de banc
 ## O que ele faz
 
 - Coloca um pilar em cada país com eventos no dia selecionado, com a cor indicando o impacto.
-- Mostra os valores efetivo, projetado e anterior de cada indicador.
+- Mostra os valores efetivo, projetado e anterior de cada indicador, quando existem, e a surpresa em relação à projeção.
+- Faz a contagem regressiva para o próximo evento de alto impacto.
+- Ilumina o globo com o dia e a noite reais, de acordo com a posição do Sol.
 - Cobre os últimos 7 dias e os próximos 21.
 - Filtra por impacto, região e categoria.
 - Exporta os eventos em `.csv` ou `.ics`.
-- Gera link para uma visão específica: `?d=2026-11-05&c=US` abre esse dia e esse país.
+- Gera link para uma visão específica: `?d=AAAA-MM-DD&c=US` abre esse dia e esse país, desde que a data esteja dentro do período coberto.
 - Está disponível em português, inglês e espanhol.
 
 ## Como funciona
@@ -45,13 +47,15 @@ cd orbis
 ./start.sh        # no Windows: start.bat
 ```
 
-A primeira execução precisa de internet para baixar o mapa e o calendário. Depois ela abre `http://127.0.0.1:8080`, ou a próxima porta livre. A partir daí, `./start.sh offline` reaproveita os dados que você já tem.
+A primeira execução precisa de internet para baixar o mapa e o calendário. Depois ela abre `http://127.0.0.1:8080`, ou a próxima porta livre. A partir daí, `./start.sh offline` (no Windows, `start.bat offline`) reaproveita os dados que você já tem.
 
 ## Testes
 
-Os testes precisam do Node.js 18 ou mais recente e dos dados gerados, então rode `./start.sh` uma vez antes. Depois:
+Os testes precisam do Node.js 18 ou mais recente e dos dados gerados:
 
 ```bash
+python scripts/build_geometry.py
+python scripts/fetch.py
 node tests/store.test.mjs .
 node tests/merge.test.mjs .
 ```
@@ -60,7 +64,7 @@ A lista completa de verificações está no [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Aviso
 
-O orbis é informativo e não é recomendação de investimento. Cada evento traz o link da instituição que o publicou.
+O orbis é informativo e não é recomendação de investimento. A maioria dos eventos traz o link da fonte.
 
 ## Licença
 
