@@ -313,7 +313,16 @@ console.log('\n=== UX: o usuario consegue concluir tarefas ===');
   check('o skip link leva a lista de eventos',
     await page.evaluate(() => document.activeElement?.id === 'event-list' || !!document.activeElement?.closest('.rail-right')));
 
-  await page.locator('.tl-day').nth(3).click();
+  /* The busiest day other than the selected one, never a fixed position: the
+     window slides daily, so the fourth cell lands on a weekend every Wednesday
+     and Thursday, with two or three events and nothing for a filter to narrow. */
+  const maisCheio = await page.evaluate(() => {
+    const total = (c) => Number((c.title.match(/(\d+)\D*$/) || [0, 0])[1]);
+    const cells = [...document.querySelectorAll('.tl-day')];
+    const livres = cells.filter((c) => !c.hasAttribute('aria-current'));
+    return cells.indexOf(livres.reduce((a, b) => (total(b) > total(a) ? b : a)));
+  });
+  await page.locator('.tl-day').nth(maisCheio).click();
   await page.waitForTimeout(800);
   const dia = await page.locator('.event-title').count();
   check('clicar num dia da timeline muda a lista', dia > 5, `${dia} eventos`);
