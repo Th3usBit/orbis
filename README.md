@@ -1,10 +1,14 @@
-# orbis
+<div align="center">
 
-O calendário econômico do mundo em um globo 3D. Indicadores, decisões de bancos centrais e feriados aparecem no país onde acontecem.
+<a href="https://th3usbit.github.io/orbis/"><img src=".github/assets/capa.jpg" width="100%" alt="orbis: o mundo inteiro em um calendário. Tela do site em português: o globo 3D com pilares nos países com eventos do dia, os filtros à esquerda, a lista de eventos à direita e a linha do tempo de quatro semanas embaixo."></a>
 
-**[Abrir o orbis](https://th3usbit.github.io/orbis/)**. Não precisa de conta nem de chave de API.
+O calendário econômico do mundo em um globo 3D. Indicadores, decisões de bancos centrais e feriados aparecem no país onde acontecem. Sem conta e sem chave de API.
 
-![Globo 3D escuro com pilares coloridos nos países com eventos econômicos](https://th3usbit.github.io/orbis/assets/social.png)
+<a href="https://th3usbit.github.io/orbis/"><img src=".github/assets/botao.svg" height="52" alt="Abrir o orbis"></a>
+
+[Como funciona](#como-funciona) · [Rodar na sua máquina](#rodar-na-sua-máquina) · [Contribuir](CONTRIBUTING.md)
+
+</div>
 
 ## O que ele faz
 
@@ -15,6 +19,8 @@ O calendário econômico do mundo em um globo 3D. Indicadores, decisões de banc
 - Exporta os eventos em `.csv` ou `.ics`.
 - Gera link para uma visão específica: `?d=2026-11-05&c=US` abre esse dia e esse país.
 - Está disponível em português, inglês e espanhol.
+
+![O orbis com o Reino Unido selecionado: a câmera no país, a lista de eventos à direita e quatro semanas na linha do tempo](.github/assets/tela-pais.jpg)
 
 ## Como funciona
 
