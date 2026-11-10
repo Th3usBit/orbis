@@ -20,8 +20,6 @@ O calendário econômico do mundo em um globo 3D. Indicadores, decisões de banc
 - Gera link para uma visão específica: `?d=2026-11-05&c=US` abre esse dia e esse país.
 - Está disponível em português, inglês e espanhol.
 
-![O orbis com o Reino Unido selecionado: a câmera no país, a lista de eventos à direita e quatro semanas na linha do tempo](.github/assets/tela-pais.jpg)
-
 ## Como funciona
 
 Um coletor em Python baixa os calendários públicos, junta os eventos repetidos e grava um único arquivo estático, `data/calendar.json`. O site só lê esse arquivo, por isso não há servidor nem chave de API.
