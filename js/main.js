@@ -5,7 +5,7 @@
 
 import {
   state, loadData, subscribe, dayMarkers, imminentEvents, dayList,
-  nextHighImpact, selectCountry, selectDay, clearSelection, todayKey,
+  nextHighImpact, selectCountry, selectDay, clearSelection, todayKey, busiestView,
 } from './store.js';
 import { createGlobe } from './globe.js';
 import {
@@ -69,6 +69,11 @@ async function boot() {
   if (state.selectedCountry) {
     const country = state.countries[state.selectedCountry];
     if (country) globe.focus(country.lat, country.lon);
+  } else {
+    // Otherwise open facing where the day's events are, not wherever the
+    // default camera happens to point (the Americas, often a quiet face).
+    const view = dayView();
+    if (view) globe.face(view.lat, view.lon);
   }
 
   startTickers();
@@ -118,6 +123,24 @@ function applyViewFromUrl() {
   // Normalise: a link with a dropped parameter, or none at all, should end up
   // showing the address of what is actually on screen.
   writeView({ day: state.selectedDay, country: state.selectedCountry });
+}
+
+/**
+ * Where to point the camera for the selected day.
+ *
+ * On a phone the panels stack under the globe and only its upper part shows,
+ * so aiming straight at the busy region would park it behind the list. Aim
+ * that much lower instead, and the region rises into the visible cap. The
+ * stacked test is the one globe.js uses to fit the sphere: a rail spanning
+ * most of the viewport sits under the globe, not beside it.
+ */
+const STACKED_LAT_SHIFT = 28;
+function dayView() {
+  const view = busiestView(dayMarkers());
+  if (!view) return null;
+  const rail = document.querySelector('.rail-right')?.getBoundingClientRect();
+  const stacked = rail && rail.width > window.innerWidth * 0.7;
+  return stacked ? { lat: Math.max(-60, view.lat - STACKED_LAT_SHIFT), lon: view.lon } : view;
 }
 
 /* ------------------------------------------------------------- rendering */
@@ -175,6 +198,13 @@ subscribe((reason) => {
   if (reason === 'country' && state.selectedCountry && globe) {
     const country = state.countries[state.selectedCountry];
     if (country) globe.focus(country.lat, country.lon);
+  }
+
+  // A new day turns the globe to that day's events, at the current zoom. Not
+  // while a country is open: the viewer is reading it, and it stays in view.
+  if (reason === 'day' && !state.selectedCountry && globe) {
+    const view = dayView();
+    if (view) globe.focus(view.lat, view.lon, globe.cameraDistance);
   }
 });
 

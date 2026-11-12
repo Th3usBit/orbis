@@ -115,6 +115,45 @@ check('imminentEvents returns only soon and significant', store.imminentEvents(2
 const counts = store.filterCounts('impact');
 check('filterCounts covers the impact scale', [...counts.keys()].length >= 3, [...counts.keys()].join(','));
 
+console.log('\n=== busiestView ===');
+const bv = store.busiestView;
+check('empty day leaves the camera alone', bv([]) === null);
+{
+  // East Asia (3 cities, 9 events) beats one busier US marker (5 events);
+  // Washington is ~100 degrees from Tokyo, so they never share a view.
+  const v = bv([
+    { lat: 38.9, lon: -77.0, count: 5 },
+    { lat: 35.7, lon: 139.7, count: 3 },
+    { lat: 37.6, lon: 127.0, count: 3 },
+    { lat: 31.2, lon: 121.5, count: 3 },
+  ]);
+  check('a cluster outweighs one busier marker', v && v.lon > 120 && v.lon < 140, JSON.stringify(v));
+}
+{
+  // Washington and London are 53 degrees apart: one view holds both.
+  const v = bv([{ lat: 38.9, lon: -77.0, count: 1 }, { lat: 51.5, lon: -0.1, count: 1 }]);
+  check('neighbours within a view are framed together', v && v.lon > -60 && v.lon < -20, JSON.stringify(v));
+}
+{
+  const v = bv([{ lat: 64.1, lon: -21.9, count: 1 }]);
+  check('view latitude is capped', v && v.lat === 40, JSON.stringify(v));
+}
+{
+  const v = bv([{ lat: -33.9, lon: 151.2, count: 2 }]);
+  check('a single marker is faced directly',
+    Math.abs(v.lat + 33.9) < 1e-6 && Math.abs(v.lon - 151.2) < 1e-6, JSON.stringify(v));
+}
+{
+  // Across the antimeridian: Wellington (174.8E) and Tonga (175.2W) average
+  // near 180, not near 0 as a plain mean of longitudes would.
+  const v = bv([{ lat: -41.3, lon: 174.8, count: 1 }, { lat: -21.1, lon: -175.2, count: 1 }]);
+  check('mean direction wraps the antimeridian', v && Math.abs(v.lon) > 170, JSON.stringify(v));
+}
+check('the loaded day yields a finite view or none', (() => {
+  const v = bv(store.dayMarkers());
+  return v === null || (Number.isFinite(v.lat) && Number.isFinite(v.lon));
+})());
+
 console.log('\n=== data integrity ===');
 check('no NaN timestamps', s.events.every((e) => Number.isFinite(e.time)));
 check('impact always 0-3', s.events.every((e) => e.impact >= 0 && e.impact <= 3));

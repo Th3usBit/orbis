@@ -441,3 +441,57 @@ export function toggleFilter(dimension, value, allValues = null) {
 
   emit('filter');
 }
+
+/* ---------------------------------------------------------------- framing */
+
+/** How wide a patch of globe counts as "one view": markers within this angle
+ *  of the centre are comfortably on the visible face, away from the limb. */
+const VIEW_RADIUS_DEG = 60;
+
+/** The camera is never tipped further than this toward a pole: past it the
+ *  globe reads as seen from above and the equatorial markets bunch at the rim. */
+const MAX_VIEW_LAT = 40;
+
+function unitVector(lat, lon) {
+  const p = (lat * Math.PI) / 180;
+  const l = (lon * Math.PI) / 180;
+  return [Math.cos(p) * Math.cos(l), Math.cos(p) * Math.sin(l), Math.sin(p)];
+}
+
+/**
+ * Where the globe should face to show the most of a day's events.
+ *
+ * Each marker is tried as a centre; the one whose cap of VIEW_RADIUS_DEG holds
+ * the most events wins (ties go to the earlier marker, which dayMarkers sorts
+ * by impact). The view is then the event-weighted mean direction of that cap,
+ * so a cluster like Europe is centred on itself rather than on whichever
+ * capital happened to win. Returns null for an empty day, so the caller leaves
+ * the camera where it was.
+ *
+ * @param {{lat:number, lon:number, count:number}[]} markers
+ * @returns {{lat:number, lon:number} | null}
+ */
+export function busiestView(markers) {
+  if (!markers.length) return null;
+  const cos = Math.cos((VIEW_RADIUS_DEG * Math.PI) / 180);
+  const points = markers.map((m) => ({ v: unitVector(m.lat, m.lon), w: m.count }));
+  const dot = (a, b) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
+
+  let best = null;
+  for (const centre of points) {
+    let score = 0;
+    for (const p of points) if (dot(centre.v, p.v) >= cos) score += p.w;
+    if (!best || score > best.score) best = { centre, score };
+  }
+
+  const sum = [0, 0, 0];
+  for (const p of points) {
+    if (dot(best.centre.v, p.v) < cos) continue;
+    for (let i = 0; i < 3; i += 1) sum[i] += p.v[i] * p.w;
+  }
+  const len = Math.hypot(...sum);
+  const [x, y, z] = len > 1e-9 ? sum.map((c) => c / len) : best.centre.v;
+  const lat = (Math.asin(Math.max(-1, Math.min(1, z))) * 180) / Math.PI;
+  const lon = (Math.atan2(y, x) * 180) / Math.PI;
+  return { lat: Math.max(-MAX_VIEW_LAT, Math.min(MAX_VIEW_LAT, lat)), lon };
+}

@@ -513,6 +513,16 @@ export async function createGlobe(canvas, handlers = {}) {
     };
   }
 
+  /** Point the camera at a place at once, keeping its distance -- and the
+   *  opening zoom, which focus() would cancel. For the first frame only;
+   *  anything the viewer sees happen goes through focus(). */
+  function face(lat, lon) {
+    const length = camera.position.length();
+    camera.position.copy(latLonToVector3(lat, lon, 1).normalize().multiplyScalar(length));
+    controls.update();
+    invalidate();
+  }
+
   /* Below this the sun has not moved far enough to change a pixel. One value
      for both the "is it worth waking the loop" test and the "has it arrived"
      test: two different epsilons leave a band where the sun is never settled
@@ -826,6 +836,7 @@ export async function createGlobe(canvas, handlers = {}) {
     setDate,
     setHighlight,
     focus,
+    face,
     resize,
 
     /** How far the camera currently sits from the centre of the globe, and the
